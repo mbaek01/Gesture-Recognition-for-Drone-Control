@@ -1,0 +1,7 @@
+*.png
+__pycache__/
+.devcontainer/
+.vscode/
+cluster_data/
+full_dataset/
+mlruns/

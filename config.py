@@ -1,0 +1,62 @@
+import argparse
+
+def get_args():
+    parser = argparse.ArgumentParser(description="Gesture Recognition for Drone Control")
+
+    # Dataset-related arguments
+    parser.add_argument('--model', type=str, default='cnn_lstm',
+                        help='model name')
+    # parser.add_argument('--dataset_version', type=str, default='v1',
+    #                     help='model version: v1, v3 only valid for model version v1 and v1-improved')
+    parser.add_argument('--normalize', type=lambda x: x.lower() == 'true', default=True,
+                        help="normalize data before training 'true' or 'false'., default is true")
+    parser.add_argument('--dataset_path', type=str, default='/workspace/drone_gesture/full_dataset',
+                        help='Path to the dataset')
+    parser.add_argument('--sliding_window_size', type=int, default=3,
+                        help='Sliding window size')
+    parser.add_argument('--sliding_window_step', type=int, default=1,
+                        help='Sliding window step size')
+    parser.add_argument('--skip_null_class', type=lambda x: x.lower() == 'true', default=True,
+                        help="Whether to skip null class. Pass 'true' or 'false'.")
+    
+    # Training-related arguments
+    parser.add_argument('--seed', type=int, default=42, help="random seed number")
+
+    parser.add_argument('--epochs', type=int, default=100,
+                        help='Number of training epochs')
+    parser.add_argument('--batch_size', type=int, default=8,
+                        help='Batch size for data loaders')
+    parser.add_argument('--learning_rate', type=float,
+                        default=0.0001, help='Learning rate for the optimizer')
+    parser.add_argument('--loso', type=bool, default=True, help="perform loso experiments")
+    parser.add_argument('--lopo', type=bool, default=True, help="perform lopo experiments")
+    parser.add_argument('--train_valid_split_ratio', type=float, default=0.9, help="ratio of train dataset to valid dataset")
+    
+    # Model-related arguments
+    parser.add_argument('--num_conv_layers', type=int, default=4,
+                        help='Number of convolutional layers')
+    parser.add_argument('--kernel_size', type=int,
+                        default=5, help='Convolution kernel size, (k, 1)')
+    
+    parser.add_argument('--temporal_module', type=str,
+                    default="gru", help='Type of temporal module')
+    parser.add_argument('--num_temp_layers', type=int,
+                        default=2, help='Number of temporal module layers')
+    
+    parser.add_argument('--hidden_dim', type=int, default=128,
+                        help='Hidden size for CNN and LSTM layers')
+    parser.add_argument('--dropout', type=float, default=0.3,
+                        help='Dropout rate for the model')
+    parser.add_argument('--num_classes', type=int,
+                        default=20, help='Number of output classes')
+
+    args = parser.parse_args()
+
+    if not args.skip_null_class:
+        assert args.num_classes == 21, "Skipping null class should had a total of 21 classes"
+    
+    else: 
+        assert args.num_classes < 21, "Skipping null class should had less than 21 classes"
+    
+
+    return args
