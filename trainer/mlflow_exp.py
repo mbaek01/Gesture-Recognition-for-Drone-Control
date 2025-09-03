@@ -11,16 +11,9 @@ from model.model import get_model
 from trainer.trainer import train, test
 
 
-def run_mlflow_experiment(args, logger, name, artifact_path, train_set, test_set, device):
-    experiment_id = mlflow.create_experiment(
-        name=name,
-        artifact_location=artifact_path
-    )
-    print(f"Experiment ID: {experiment_id}")
+def run_mlflow_experiment(args, logger, name, train_set, test_set, device):
 
-    mlflow.set_experiment(name)
-
-    with mlflow.start_run():
+    with mlflow.start_run(run_name=name):
         mlflow.log_param("Train Set", train_set)
         mlflow.log_param("Test Set", test_set)
 

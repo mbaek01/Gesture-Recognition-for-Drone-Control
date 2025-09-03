@@ -1,4 +1,6 @@
 *.png
+*.log
+*.sh
 __pycache__/
 .devcontainer/
 .vscode/

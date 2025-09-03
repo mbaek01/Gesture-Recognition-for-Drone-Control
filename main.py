@@ -1,6 +1,7 @@
 import os
 import logging
 import datetime
+import mlflow
 from config import get_args
 from dataloader.utils import generate_all_sessions, generate_loso_lopo_sets
 from trainer.mlflow_exp import run_mlflow_experiment
@@ -19,9 +20,9 @@ def main(args):
 
     # Timestamp
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    high_level_folder = f"./mlruns/{args.model}_{timestamp}"
-    os.makedirs(high_level_folder, exist_ok=True)
-    
+    experiment_name = f"{args.model}_{timestamp}"
+    mlflow.set_experiment(experiment_name)
+
     # Set device
     device = set_device()
 
@@ -30,12 +31,7 @@ def main(args):
             train_set = loso_set['train']
             test_set = loso_set['test']
             logger.info(f"Running LOSO experiment {i + 1}/{len(loso_sets)}")
-
-            # mlflow path
-            experiment_name = f"LOSO_Experiment_{i + 1}"
-            artifact_path = os.path.join(high_level_folder, experiment_name)
-
-            run_mlflow_experiment(args, logger, experiment_name, artifact_path, train_set, test_set, device)
+            run_mlflow_experiment(args, logger, f"LOSO_Experiment_{i + 1}", train_set, test_set, device)
 
     if args.lopo:
         for i, lopo_set in enumerate(lopo_sets):
