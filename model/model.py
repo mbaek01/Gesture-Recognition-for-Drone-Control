@@ -8,9 +8,11 @@ def get_model(args):
                          args.num_conv_layers, 
                          args.temporal_module,
                          args.num_temp_layers, 
+                         args.temp_agg,
+                         args.fusion_method,
                          args.hidden_dim, 
-                         args.kernel_size,
-                         args.dropout)
+                         args.kernel_size
+                         )
     
     else:
         raise NotImplementedError

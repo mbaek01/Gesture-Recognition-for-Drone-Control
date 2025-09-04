@@ -40,11 +40,12 @@ def train(model,
             optimizer.zero_grad()
             output = model(data, device)
             loss = criterion(output, labels_onehot)
+            
             loss.backward()
             optimizer.step()
 
-            train_loss += loss.item()
-            running_loss = train_loss / (batch_idx + 1)
+            # train_loss += loss.item()
+            # running_loss = train_loss / (batch_idx + 1)
 
             preds = torch.argmax(output, dim=1).cpu().numpy()
             all_preds.extend(preds)

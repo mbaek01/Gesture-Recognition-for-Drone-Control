@@ -24,7 +24,7 @@ def get_args():
 
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of training epochs')
-    parser.add_argument('--batch_size', type=int, default=8,
+    parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size for data loaders')
     parser.add_argument('--learning_rate', type=float,
                         default=0.0001, help='Learning rate for the optimizer')
@@ -39,16 +39,21 @@ def get_args():
                         default=5, help='Convolution kernel size, (k, 1)')
     
     parser.add_argument('--temporal_module', type=str,
-                    default="gru", help='Type of temporal module')
+                    default="gru", help='Type of temporal module', choices=['bidlstm', 'lstm', 'gru'])
     parser.add_argument('--num_temp_layers', type=int,
                         default=2, help='Number of temporal module layers')
     
     parser.add_argument('--hidden_dim', type=int, default=128,
                         help='Hidden size for CNN and LSTM layers')
-    parser.add_argument('--dropout', type=float, default=0.3,
-                        help='Dropout rate for the model')
+    # parser.add_argument('--dropout', type=float, default=0.3,
+    #                     help='Dropout rate for the model')
     parser.add_argument('--num_classes', type=int,
                         default=20, help='Number of output classes')
+    
+    parser.add_argument('--fusion_method', type=str, default='fc',
+                        help="Modality fusion method", choices=['fc', 'attn'])
+    parser.add_argument('--temp_agg', type=bool, default=True, 
+                        help="Whether to use weighted sum of rnn's hidden state")
 
     args = parser.parse_args()
 

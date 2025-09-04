@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F  
 
-from model.TinyHAR import BidLSTM, temporal_GRU, temporal_LSTM
+from model.temporal_fusion import BidLSTM, temporal_GRU, temporal_LSTM, Temporal_Weighted_Aggregation, SelfAttention, FC
 
 temporal = {
     "bidlstm": BidLSTM,
@@ -10,9 +10,29 @@ temporal = {
     "gru": temporal_GRU
 }
 
+modality_aggregation = {
+    "fc": FC,
+    "attn": SelfAttention
+}
+
+
 class CNN_LSTM(nn.Module):
-    def __init__(self, num_classes, num_conv_layers, temporal_module, num_temp_layers, hidden_dim, kernel_size, dropout):
+    def __init__(self, 
+                 num_classes, 
+                 num_conv_layers, 
+                 temporal_module, 
+                 num_temp_layers, 
+                 temp_agg, 
+                 fusion_method,
+                 hidden_dim, 
+                 kernel_size):
         super().__init__()
+
+        if temp_agg:
+            self.temp_agg = Temporal_Weighted_Aggregation(hidden_dim)
+        
+        else:
+            self.temp_agg = None
 
         self.hidden_dim = hidden_dim
         
@@ -26,15 +46,14 @@ class CNN_LSTM(nn.Module):
         # Temporal 
         self.temp_blocks = nn.ModuleDict({
             modality: temporal[temporal_module](hidden_dim, hidden_dim, num_temp_layers)
-            for modality, num_channel in [('l_cap',4), ('r_cap',4), ('l_acc',3), ('r_acc',3), 
+            for modality, _ in [('l_cap',4), ('r_cap',4), ('l_acc',3), ('r_acc',3), 
                                           ('l_gyro',3), ('r_gyro',3), ('l_quat',4), ('r_quat',4)]
             })
+        
+        # Fusion
+        self.modality_fusion = modality_aggregation[fusion_method](hidden_dim)
 
-        self.fc1 = nn.Linear(hidden_dim * 8, hidden_dim)
-
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(dropout)
-        self.fc2 = nn.Linear(hidden_dim, num_classes)
+        self.fc = nn.Linear(hidden_dim, num_classes)
 
     def _conv_block(self, num_conv_layers, in_channel, out_channel, kernel_size):
         layers_conv = []
@@ -77,49 +96,17 @@ class CNN_LSTM(nn.Module):
             # output from the previous conv step
             temp_input = conv_outputs[name]
 
-            temp_input, hidden = layer(temp_input)
+            temp_output = layer(temp_input)
             
-            temp_hidden_states.append(hidden[-1])
+            if self.temp_agg:
+                temp_output = self.temp_agg(temp_output)
             
-        concat_output = torch.cat(temp_hidden_states, dim=-1)
-                
-        out = self.relu(self.fc1(concat_output))
-        out = self.fc2(self.dropout(out))
+            temp_hidden_states.append(temp_output)
+            
+        concat_output = torch.stack(temp_hidden_states, dim=1)
+
+        all_modalities = self.modality_fusion(concat_output)
+        
+        out = self.fc(all_modalities)
         
         return out
-
-
-class Weighted_Sum_Late_Fusion(nn.Module):
-    def __init__(self, hidden_size, attention_size):
-        super(Weighted_Sum_Late_Fusion, self).__init__()
-        
-        self.w_omega = nn.Parameter(torch.randn(hidden_size, attention_size) * 0.1)
-        self.b_omega = nn.Parameter(torch.randn(attention_size) * 0.1)
-        self.u_omega = nn.Parameter(torch.randn(attention_size) * 0.1)
-        self.attention_size = attention_size
-        self.hidden_size = hidden_size
-
-    def forward(self, inputs, return_alphas=False):
-        """
-        inputs:
-            - RNN outputs
-            - Shape: (B, L, C) 
-        """
-        # PyTorch handles tuples from Bi-RNNs naturally by stacking. So don't need a specific check.
-
-        # (B, L, C) @ (C, A) -> (B, L, A)
-        v = torch.tanh(torch.tensordot(inputs, self.w_omega, dims=([2], [0])) + self.b_omega)
-        
-        # (B, L, A) @ (A) -> (B, L)
-        vu = torch.tensordot(v, self.u_omega, dims=([2], [0]))
-        # Softmax over the time dimension
-        alphas = F.softmax(vu, dim=1) 
-
-        # (B, L, 1) * (B, L, C) -> (B, L, C)
-        # Summing over the time dimension to get (B, D)
-        output = torch.sum(inputs * alphas.unsqueeze(-1), dim=1)
-
-        if not return_alphas:
-            return output
-        else:
-            return output, alphas
