@@ -18,14 +18,16 @@ class CNN_LSTM(nn.Module):
         
         # Conv
         self.conv_blocks = nn.ModuleDict({
-            modality: self._conv_block(num_conv_layers, hidden_dim, kernel_size) 
-            for modality in ['l_cap', 'r_cap', 'l_acc', 'r_acc', 'l_gyro', 'r_gyro', 'l_quat', 'r_quat']
+            modality: self._conv_block(num_conv_layers, in_channel, hidden_dim, kernel_size) 
+            for modality, in_channel in [('l_cap',4), ('r_cap',4), ('l_acc',3), ('r_acc',3), 
+                                         ('l_gyro',3), ('r_gyro',3), ('l_quat',4), ('r_quat',4)]
             })
         
         # Temporal 
         self.temp_blocks = nn.ModuleDict({
-            modality: self._temp_block(temporal[temporal_module], num_temp_layers, num_channel, hidden_dim, hidden_dim)
-            for modality, num_channel in [('l_cap',4), ('r_cap',4), ('l_acc',3), ('r_acc',3), ('l_gyro',3), ('r_gyro',3), ('l_quat',4), ('r_quat',4)]
+            modality: temporal[temporal_module](hidden_dim, hidden_dim, num_temp_layers)
+            for modality, num_channel in [('l_cap',4), ('r_cap',4), ('l_acc',3), ('r_acc',3), 
+                                          ('l_gyro',3), ('r_gyro',3), ('l_quat',4), ('r_quat',4)]
             })
 
         self.fc1 = nn.Linear(hidden_dim * 8, hidden_dim)
@@ -34,57 +36,48 @@ class CNN_LSTM(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.fc2 = nn.Linear(hidden_dim, num_classes)
 
-    def _conv_block(self, num_conv_layers, filter_num, kernel_size):
-        filter_num_list=[1]
-        # filter_num_step=int(filter_num/num_conv_layers)
-        for i in range(num_conv_layers-1):
-            filter_num_list.append(filter_num)
-        filter_num_list.append(filter_num)
-
+    def _conv_block(self, num_conv_layers, in_channel, out_channel, kernel_size):
         layers_conv = []
         for i in range(num_conv_layers):
-            in_channel  = filter_num_list[i]
-            out_channel = filter_num_list[i+1]
             if i%2 == 1:
                 layers_conv.append(nn.Sequential(
-                    nn.Conv2d(in_channel, out_channel, (kernel_size, 1),(2,1)),
+                    nn.Conv1d(out_channel, out_channel, kernel_size=kernel_size, stride=2),
                     nn.ReLU(inplace=True),#))#,
-                    nn.BatchNorm2d(out_channel)))
+                    nn.BatchNorm1d(out_channel)))
             else:
                 layers_conv.append(nn.Sequential(
-                    nn.Conv2d(in_channel, out_channel, (kernel_size, 1),(1,1)),# (1,1)
+                    nn.Conv1d(in_channel if i == 0 else out_channel, out_channel, kernel_size=kernel_size, stride=1),# (1,1)
                     nn.ReLU(inplace=True),#))#,
-                    nn.BatchNorm2d(out_channel)))
+                    nn.BatchNorm1d(out_channel)))
                 
         return nn.ModuleList(layers_conv)
     
-    def _temp_block(self, module, num_temp_layers, nb_channels, num_filters, hidden_dim):
-        lstm_layers = []
-        for i in range(num_temp_layers):
-            if i == 0:
-                lstm_layers.append(module(nb_channels * num_filters, hidden_dim))
-            else:
-                lstm_layers.append(module(hidden_dim, hidden_dim))
-        return nn.ModuleList(lstm_layers)
+    # def _temp_block(self, module, num_temp_layers, nb_channels, num_filters, hidden_dim):
+    #     lstm_layers = []
+    #     for i in range(num_temp_layers):
+    #         lstm_layers.append(module(hidden_dim, hidden_dim))
+    #     return nn.ModuleList(lstm_layers)
         
     def forward(self, x, device):
+        
+        # Conv1D per modality
         conv_outputs = {}
         
         for name, conv_block in self.conv_blocks.items():
-            input_data = x[name].to(device).unsqueeze(1)                                            # (B, f, L, C)
+            input_data = x[name].to(device).transpose(1,2)    # (B, L, C)
 
             for layer in conv_block:
-                input_data = layer(input_data)
+                input_data = layer(input_data)                # (B, C, L)
 
-            conv_outputs[name] = torch.flatten(input_data.permute(0,2,3,1), start_dim=2, end_dim=3) # (B, L, C*f)
+            conv_outputs[name] = input_data.transpose(1,2)    # (B, C, L)
 
+        # RNN per modality
         temp_hidden_states = []
-        for name, temp_block in self.temp_blocks.items():
+        for name, layer in self.temp_blocks.items():
             # output from the previous conv step
             temp_input = conv_outputs[name]
 
-            for layer in temp_block:
-                temp_input, hidden = layer(temp_input)
+            temp_input, hidden = layer(temp_input)
             
             temp_hidden_states.append(hidden[-1])
             
@@ -96,7 +89,37 @@ class CNN_LSTM(nn.Module):
         return out
 
 
+class Weighted_Sum_Late_Fusion(nn.Module):
+    def __init__(self, hidden_size, attention_size):
+        super(Weighted_Sum_Late_Fusion, self).__init__()
+        
+        self.w_omega = nn.Parameter(torch.randn(hidden_size, attention_size) * 0.1)
+        self.b_omega = nn.Parameter(torch.randn(attention_size) * 0.1)
+        self.u_omega = nn.Parameter(torch.randn(attention_size) * 0.1)
+        self.attention_size = attention_size
+        self.hidden_size = hidden_size
 
+    def forward(self, inputs, return_alphas=False):
+        """
+        inputs:
+            - RNN outputs
+            - Shape: (B, L, C) 
+        """
+        # PyTorch handles tuples from Bi-RNNs naturally by stacking. So don't need a specific check.
 
+        # (B, L, C) @ (C, A) -> (B, L, A)
+        v = torch.tanh(torch.tensordot(inputs, self.w_omega, dims=([2], [0])) + self.b_omega)
+        
+        # (B, L, A) @ (A) -> (B, L)
+        vu = torch.tensordot(v, self.u_omega, dims=([2], [0]))
+        # Softmax over the time dimension
+        alphas = F.softmax(vu, dim=1) 
 
-# class Weighted_Sum_Late_Fusion(nn.Module):
+        # (B, L, 1) * (B, L, C) -> (B, L, C)
+        # Summing over the time dimension to get (B, D)
+        output = torch.sum(inputs * alphas.unsqueeze(-1), dim=1)
+
+        if not return_alphas:
+            return output
+        else:
+            return output, alphas

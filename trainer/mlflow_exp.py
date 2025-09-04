@@ -57,60 +57,60 @@ def run_mlflow_experiment(args, logger, name, train_set, test_set, device):
         print("Train Dataset length:", len(train_dataset))
         print("Test Dataset Length: ", len(test_dataset) )
 
-    ###################
+        ###################
 
-    # Define the split ratio and sizes
-    train_size = args.train_valid_split_ratio
-    val_size = 1 - train_size
-    train_dataset, val_dataset = train_test_split(
-        train_dataset, test_size=val_size, random_state=42, shuffle=True)
+        # Define the split ratio and sizes
+        train_size = args.train_valid_split_ratio
+        val_size = 1 - train_size
+        train_dataset, val_dataset = train_test_split(
+            train_dataset, test_size=val_size, random_state=42, shuffle=True)
 
-    # Split indices
+        # Split indices
 
-    # Create DataLoader instances
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
-                            shuffle=True, collate_fn=SensorDataset.collate_fn)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size,
-                            shuffle=True, collate_fn=SensorDataset.collate_fn)
+        # Create DataLoader instances
+        train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
+                                shuffle=True, collate_fn=SensorDataset.collate_fn)
+        val_loader = DataLoader(val_dataset, batch_size=args.batch_size,
+                                shuffle=True, collate_fn=SensorDataset.collate_fn)
 
-    ###################
+        ###################
 
-    # Data loaders
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
-                            shuffle=False, collate_fn=SensorDataset.collate_fn)
+        # Data loaders
+        test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
+                                shuffle=False, collate_fn=SensorDataset.collate_fn)
 
-    # Model
+        # Model
 
-    model = get_model(args)
-    model.to(device)
+        model = get_model(args)
+        model.to(device)
 
-    ###################
+        ###################
 
 
-    # Optimizer and loss function
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=args.learning_rate, betas=(0.9, 0.99)
-    )
-    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+        # Optimizer and loss function
+        optimizer = torch.optim.Adam(
+            model.parameters(), lr=args.learning_rate, betas=(0.9, 0.99)
+        )
+        criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 
-    # Training and testing
-    train(model, 
-          train_loader, 
-          val_loader,
-          optimizer, 
-          criterion, 
-          args.epochs,
-          args.num_classes,
-          device,
-          logger)
-    
-    test(model, 
-         test_loader, 
-         criterion, 
-         device,
-         args.num_classes,
-         args.skip_null_class,
-         logger)
+        # Training and testing
+        train(model, 
+            train_loader, 
+            val_loader,
+            optimizer, 
+            criterion, 
+            args.epochs,
+            args.num_classes,
+            device,
+            logger)
+        
+        test(model, 
+            test_loader, 
+            criterion, 
+            device,
+            args.num_classes,
+            args.skip_null_class,
+            logger)
 
 def log_parameters(args, logger):
     """Log parameters to logger and MLflow."""
