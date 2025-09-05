@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class SelfAttention(nn.Module):
+class SelfAttention_Gamma(nn.Module):
     """
 
     """
     def __init__(self, n_channels):
-        super(SelfAttention, self).__init__()
+        super(SelfAttention_Gamma, self).__init__()
 
         self.query = nn.Linear(n_channels, n_channels, bias=False)
         self.key   = nn.Linear(n_channels, n_channels, bias=False)
@@ -22,13 +22,43 @@ class SelfAttention(nn.Module):
         
         beta = F.softmax(torch.bmm(f, g.permute(0, 2, 1).contiguous()), dim=1)
 
-        o = self.gamma * torch.bmm(h.permute(0, 2, 1).contiguous(), beta) + x.permute(0, 2, 1).contiguous()
+        o = self.gamma * torch.bmm(h.permute(0, 2, 1).contiguous(), beta) # + x.permute(0, 2, 1).contiguous()
+        o = o.permute(0, 2, 1).contiguous()
+
+        # for attention weight visualization
+        scaled_weights = self.gamma*beta
+
+        o = torch.flatten(o, 1, 2)
+        o = self.fc(o)
+
+        return o, scaled_weights
+
+class SelfAttention(nn.Module):
+    """
+
+    """
+    def __init__(self, n_channels):
+        super(SelfAttention, self).__init__()
+
+        self.query = nn.Linear(n_channels, n_channels, bias=False)
+        self.key   = nn.Linear(n_channels, n_channels, bias=False)
+        self.value = nn.Linear(n_channels, n_channels, bias=False)
+
+        self.fc = nn.Linear(n_channels*8, n_channels)
+
+    def forward(self, x):
+
+        f, g, h = self.query(x), self.key(x), self.value(x)
+        
+        beta = F.softmax(torch.bmm(f, g.permute(0, 2, 1).contiguous()), dim=1)
+
+        o = torch.bmm(h.permute(0, 2, 1).contiguous(), beta) # + x.permute(0, 2, 1).contiguous()
         o = o.permute(0, 2, 1).contiguous()
 
         o = torch.flatten(o, 1, 2)
         o = self.fc(o)
 
-        return o
+        return o, beta
 
 
 class Temporal_Weighted_Aggregation(nn.Module):

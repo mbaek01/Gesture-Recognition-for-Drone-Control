@@ -1,17 +1,32 @@
 import argparse
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+    
+
 def get_args():
     parser = argparse.ArgumentParser(description="Gesture Recognition for Drone Control")
 
     # Dataset-related arguments
-    parser.add_argument('--model', type=str, default='cnn_lstm',
+    parser.add_argument('--model', type=str, default='cnn_rnn',
                         help='model name')
     # parser.add_argument('--dataset_version', type=str, default='v1',
     #                     help='model version: v1, v3 only valid for model version v1 and v1-improved')
     parser.add_argument('--normalize', type=lambda x: x.lower() == 'true', default=True,
                         help="normalize data before training 'true' or 'false'., default is true")
+    
     parser.add_argument('--dataset_path', type=str, default='/workspace/drone_gesture/full_dataset',
                         help='Path to the dataset')
+    parser.add_argument('--save_path', type=str, default='/workspace/drone_gesture/saved',
+                        help='Path to the dataset')
+    
     parser.add_argument('--sliding_window_size', type=int, default=3,
                         help='Sliding window size')
     parser.add_argument('--sliding_window_step', type=int, default=1,
@@ -21,6 +36,7 @@ def get_args():
     
     # Training-related arguments
     parser.add_argument('--seed', type=int, default=42, help="random seed number")
+    parser.add_argument('--gpu', default=0, type=int, help="gpu index number")
 
     parser.add_argument('--epochs', type=int, default=100,
                         help='Number of training epochs')
@@ -28,8 +44,9 @@ def get_args():
                         help='Batch size for data loaders')
     parser.add_argument('--learning_rate', type=float,
                         default=0.0001, help='Learning rate for the optimizer')
-    parser.add_argument('--loso', type=bool, default=True, help="perform loso experiments")
-    parser.add_argument('--lopo', type=bool, default=True, help="perform lopo experiments")
+    
+    parser.add_argument('--loso', type=bool, default=str2bool, help="perform loso experiments")
+    parser.add_argument('--lopo', type=bool, default=str2bool, help="perform lopo experiments")
     parser.add_argument('--train_valid_split_ratio', type=float, default=0.9, help="ratio of train dataset to valid dataset")
     
     # Model-related arguments
@@ -50,9 +67,9 @@ def get_args():
     parser.add_argument('--num_classes', type=int,
                         default=20, help='Number of output classes')
     
-    parser.add_argument('--fusion_method', type=str, default='fc',
-                        help="Modality fusion method", choices=['fc', 'attn'])
-    parser.add_argument('--temp_agg', type=bool, default=True, 
+    parser.add_argument('--fusion_method', type=str, default='attn',
+                        help="Modality fusion method", choices=['fc', 'attn', 'attn_gamma'])
+    parser.add_argument('--temp_agg', type=str2bool, default=True, 
                         help="Whether to use weighted sum of rnn's hidden state")
 
     args = parser.parse_args()

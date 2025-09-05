@@ -11,7 +11,7 @@ from model.model import get_model
 from trainer.trainer import train, test
 
 
-def run_mlflow_experiment(args, logger, name, train_set, test_set, device):
+def run_mlflow_experiment(args, logger, name, train_set, test_set, device, score_log, setting):
 
     with mlflow.start_run(run_name=name):
         mlflow.log_param("Train Set", train_set)
@@ -104,13 +104,25 @@ def run_mlflow_experiment(args, logger, name, train_set, test_set, device):
             device,
             logger)
         
-        test(model, 
-            test_loader, 
-            criterion, 
-            device,
-            args.num_classes,
-            args.skip_null_class,
-            logger)
+        score = test(model, 
+                    test_loader, 
+                    criterion, 
+                    device,
+                    args.num_classes,
+                    args.skip_null_class,
+                    logger,
+                    setting,
+                    name)
+        
+        # Score log 
+        metrics_str = (
+            f"  Test: {name} \n"
+            f"  F1 Macro: {score:.7f} \n")
+        
+        score_log.write(metrics_str)
+        score_log.write("----------------------------------------------------------------------------------------\n")
+        score_log.flush()
+    return score
 
 def log_parameters(args, logger):
     """Log parameters to logger and MLflow."""

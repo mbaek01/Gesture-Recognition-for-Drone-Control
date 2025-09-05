@@ -2,6 +2,8 @@ import os
 import logging
 import datetime
 import mlflow
+import numpy as np
+
 from config import get_args
 from dataloader.utils import generate_all_sessions, generate_loso_lopo_sets
 from trainer.mlflow_exp import run_mlflow_experiment
@@ -24,21 +26,41 @@ def main(args):
     mlflow.set_experiment(experiment_name)
 
     # Set device
-    device = set_device()
+    device = set_device(args.gpu)
+
+    # Log setting for the test performance
+    setting_str = f"{args.model}_{args.temporal_module}_temp_agg-{args.temp_agg}_{args.fusion_method}_{args.hidden_dim}_conv-{args.num_conv_layers}_rnn-{args.num_temp_layers}_{timestamp}"
+    score_log_file_path = os.path.join(args.save_path, setting_str)          
+    if not os.path.exists(score_log_file_path):
+            os.makedirs(score_log_file_path)
+
+    score_log = open(os.path.join(score_log_file_path, "score.txt"), "a")
 
     if args.loso:
+        f_macro_list_loso = []
         for i, loso_set in enumerate(loso_sets):
             train_set = loso_set['train']
             test_set = loso_set['test']
             logger.info(f"Running LOSO experiment {i + 1}/{len(loso_sets)}")
-            run_mlflow_experiment(args, logger, f"LOSO_Experiment_{i + 1}", train_set, test_set, device)
+            score = run_mlflow_experiment(args, logger, f"LOSO_Experiment_{i + 1}", train_set, test_set, device, score_log, setting_str)
+            f_macro_list_loso.append(score)
+
+        score_log.write(f"      [LOSO] F1 Macro: mean={np.mean(f_macro_list_loso):.7f}, std={np.std(f_macro_list_loso):.7f}\n")
+        score_log.write("----------------------------------------------------------------------------------------\n")
+        score_log.flush()
+
 
     if args.lopo:
+        f_macro_list_lopo = []
         for i, lopo_set in enumerate(lopo_sets):
             train_set = lopo_set['train']
             test_set = lopo_set['test']
             logger.info(f"Running LOPO experiment {i + 1}/{len(lopo_sets)}")
-            run_mlflow_experiment(args, logger, f"LOPO_Experiment_{i + 1}", train_set, test_set, device)
+            score = run_mlflow_experiment(args, logger, f"LOPO_Experiment_{i + 1}", train_set, test_set, device, score_log, setting_str)
+            f_macro_list_lopo.append(score)
+
+        score_log.write(f"      [LOPO] F1 Macro: mean={np.mean(f_macro_list_lopo):.7f}, std={np.std(f_macro_list_lopo):.7f}\n")
+        score_log.flush()
 
 
 if __name__ == '__main__':

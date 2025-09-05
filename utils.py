@@ -4,9 +4,9 @@ import random
 import numpy as np
 
 
-def set_device():
+def set_device(gpu_num):
     os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:{gpu_num}" if torch.cuda.is_available() else "cpu")
 
     print(f"Device being used: {device}")
 

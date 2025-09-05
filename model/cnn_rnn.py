@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F  
 
-from model.temporal_fusion import BidLSTM, temporal_GRU, temporal_LSTM, Temporal_Weighted_Aggregation, SelfAttention, FC
+from model.temporal_fusion import BidLSTM, temporal_GRU, temporal_LSTM, Temporal_Weighted_Aggregation, SelfAttention, SelfAttention_Gamma, FC
 
 temporal = {
     "bidlstm": BidLSTM,
@@ -12,11 +12,12 @@ temporal = {
 
 modality_aggregation = {
     "fc": FC,
-    "attn": SelfAttention
+    "attn": SelfAttention,
+    "attn_gamma": SelfAttention_Gamma
 }
 
 
-class CNN_LSTM(nn.Module):
+class CNN_RNN(nn.Module):
     def __init__(self, 
                  num_classes, 
                  num_conv_layers, 
@@ -27,6 +28,9 @@ class CNN_LSTM(nn.Module):
                  hidden_dim, 
                  kernel_size):
         super().__init__()
+
+        self.modalities = [('l_cap',4), ('r_cap',4), ('l_acc',3), ('r_acc',3), 
+                           ('l_gyro',3), ('r_gyro',3), ('l_quat',4), ('r_quat',4)]
 
         if temp_agg:
             self.temp_agg = Temporal_Weighted_Aggregation(hidden_dim)
@@ -39,16 +43,12 @@ class CNN_LSTM(nn.Module):
         # Conv
         self.conv_blocks = nn.ModuleDict({
             modality: self._conv_block(num_conv_layers, in_channel, hidden_dim, kernel_size) 
-            for modality, in_channel in [('l_cap',4), ('r_cap',4), ('l_acc',3), ('r_acc',3), 
-                                         ('l_gyro',3), ('r_gyro',3), ('l_quat',4), ('r_quat',4)]
-            })
+            for modality, in_channel in self.modalities})
         
         # Temporal 
         self.temp_blocks = nn.ModuleDict({
             modality: temporal[temporal_module](hidden_dim, hidden_dim, num_temp_layers)
-            for modality, _ in [('l_cap',4), ('r_cap',4), ('l_acc',3), ('r_acc',3), 
-                                          ('l_gyro',3), ('r_gyro',3), ('l_quat',4), ('r_quat',4)]
-            })
+            for modality, _ in self.modalities})
         
         # Fusion
         self.modality_fusion = modality_aggregation[fusion_method](hidden_dim)
@@ -100,12 +100,14 @@ class CNN_LSTM(nn.Module):
             
             if self.temp_agg:
                 temp_output = self.temp_agg(temp_output)
+            else:
+                temp_output = temp_output[:, -1, :].squeeze(1)
             
             temp_hidden_states.append(temp_output)
             
         concat_output = torch.stack(temp_hidden_states, dim=1)
 
-        all_modalities = self.modality_fusion(concat_output)
+        all_modalities, att_weights = self.modality_fusion(concat_output)
         
         out = self.fc(all_modalities)
         

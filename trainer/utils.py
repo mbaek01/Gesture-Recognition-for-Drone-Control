@@ -29,7 +29,7 @@ def log_metrics_to_mlflow(epoch, phase, loss, f1):
     # mlflow.log_metric(f"{phase}_f2_score", f2, step=epoch)
 
 
-def plot_confusion_matrix(cm, skip_null_class):
+def plot_confusion_matrix(cm, skip_null_class, setting, name):
     # Filter labels
     filtered_items = [(label, idx) for label, idx in label_map.items()
                       if label != 'claps' and (label != 'NULL_CLASS' or not skip_null_class)]
@@ -48,13 +48,26 @@ def plot_confusion_matrix(cm, skip_null_class):
         confusion_matrix=cm_filtered, display_labels=label_names)
     disp.plot(include_values=True, cmap='Blues',
               xticks_rotation=90, ax=plt.gca())
+    
+    n_classes = len(label_names)
+
+    # Make diagonal values bold and white
+    for i, text in enumerate(disp.text_):
+        row = i // n_classes
+        col = i % n_classes
+        if row == col:  # diagonal only
+            text.set_color("white")
+            text.set_fontweight("bold")
+
     plt.title('Confusion Matrix')
     plt.tight_layout()
-    plt.savefig('confusion_matrix.png')
-    mlflow.log_artifact('confusion_matrix.png')
+
+    plt_path = f'saved/{setting}/{name}_confusion_matrix.png'
+    plt.savefig(plt_path)
+    mlflow.log_artifact(plt_path)
     plt.close()
 
-def plot_confusion_matrix_percentage(cm, skip_null_class):
+def plot_confusion_matrix_percentage(cm, skip_null_class, setting, name):
         # Filter labels
      # Filter labels
     filtered_items = [(label, idx) for label, idx in label_map.items()
@@ -79,12 +92,68 @@ def plot_confusion_matrix_percentage(cm, skip_null_class):
     
     # Manually add text
     ax = plt.gca()
+
     for (i, j), val in np.ndenumerate(cm_percentage):
         if not np.isnan(val):
-            ax.text(j, i, f"{val:.1f}%", ha='center', va='center', color='black', fontsize=8)
+            if i == j:  # diagonal cell
+                ax.text(j, i, f"{val:.1f}%",
+                        ha='center', va='center',
+                        color='white', fontsize=9, fontweight='bold')
+            else:  # off-diagonal
+                ax.text(j, i, f"{val:.1f}%",
+                        ha='center', va='center',
+                        color='black', fontsize=8)
 
     plt.title('Confusion Matrix (Percentages)')
     plt.tight_layout()
-    plt.savefig('confusion_matrix_percentage.png')  
-    mlflow.log_artifact('confusion_matrix_percentage.png')  
+
+    plt_path = f'saved/{setting}/{name}_confusion_matrix_percentage.png'
+    plt.savefig(plt_path)  
+    mlflow.log_artifact(plt_path)  
     plt.close()
+
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+def visualize_attention_heatmap(attention_matrix, modalities, file_path=None):
+    """
+    Visualizes an attention matrix as a heatmap.
+
+    Args:
+        attention_matrix (np.ndarray): The 2D array of attention weights.
+                                     Shape: (num_modalities, num_modalities)
+        modalities (list): A list of strings for the modality labels.
+        file_path (str, optional): The path to save the plot. 
+                                   If None, the plot is not saved.
+    """
+    if attention_matrix.ndim != 2:
+        raise ValueError("Input attention_matrix must be a 2D array.")
+
+    num_modalities = len(modalities)
+    if attention_matrix.shape != (num_modalities, num_modalities):
+        raise ValueError("Shape of attention_matrix must match the number of modalities.")
+
+    # Create the heatmap plot
+    plt.figure(figsize=(10, 8))
+    plt.imshow(attention_matrix, cmap='viridis')
+    
+    # Set the title and labels
+    plt.title('Attention Weights Heatmap')
+    plt.xlabel('Keys (Modalities Paying Attention)')
+    plt.ylabel('Queries (Modalities Receiving Attention)')
+    
+    # Set the ticks and labels for the axes
+    plt.xticks(np.arange(num_modalities), modalities, rotation=45, ha='right')
+    plt.yticks(np.arange(num_modalities), modalities)
+    
+    # Add a color bar and adjust layout
+    plt.colorbar(label='Attention Weight')
+    plt.tight_layout()
+    
+    # Show the plot
+    plt.show()
+
+    # Save the plot to a file if a file path is provided
+    if file_path:
+        plt.savefig(file_path)
