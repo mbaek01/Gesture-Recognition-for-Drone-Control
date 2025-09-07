@@ -32,12 +32,6 @@ class CNN_RNN(nn.Module):
         self.modalities = [('l_cap',4), ('r_cap',4), ('l_acc',3), ('r_acc',3), 
                            ('l_gyro',3), ('r_gyro',3), ('l_quat',4), ('r_quat',4)]
 
-        if temp_agg:
-            self.temp_agg = Temporal_Weighted_Aggregation(hidden_dim)
-        
-        else:
-            self.temp_agg = None
-
         self.hidden_dim = hidden_dim
         
         # Conv
@@ -51,9 +45,18 @@ class CNN_RNN(nn.Module):
             for modality, _ in self.modalities})
         
         # Fusion
-        self.modality_fusion = modality_aggregation[fusion_method](hidden_dim)
+        if temporal_module == "bidlstm":
+            self.hidden_dim *= 2
+        
+        if temp_agg:
+            self.temp_agg = Temporal_Weighted_Aggregation(self.hidden_dim)
+        
+        else:
+            self.temp_agg = None
 
-        self.fc = nn.Linear(hidden_dim, num_classes)
+        self.modality_fusion = modality_aggregation[fusion_method](self.hidden_dim)
+
+        self.fc = nn.Linear(self.hidden_dim, num_classes)
 
     def _conv_block(self, num_conv_layers, in_channel, out_channel, kernel_size):
         layers_conv = []
@@ -111,4 +114,4 @@ class CNN_RNN(nn.Module):
         
         out = self.fc(all_modalities)
         
-        return out
+        return out, att_weights

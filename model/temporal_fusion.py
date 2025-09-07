@@ -136,7 +136,7 @@ class temporal_LSTM(nn.Module):
 
 class BidLSTM(nn.Module):
     def __init__(self, input_dim, output_dim, num_temp_layers=1):
-        super(temporal_LSTM, self).__init__()
+        super(BidLSTM, self).__init__()
         self.lstm = nn.LSTM(input_dim, output_dim, 
                             num_layers = num_temp_layers,
                             batch_first = True,

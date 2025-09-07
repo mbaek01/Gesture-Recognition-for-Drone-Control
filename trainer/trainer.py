@@ -139,17 +139,41 @@ def test(model,
     f1 = f1_score(all_labels, all_preds, average='macro')
 
     # confusion matrix
+
+    vis_path = os.path.join(f"saved/{setting}", name)
+
+    if not os.path.exists(vis_path):
+            os.makedirs(vis_path)
+
     cm = confusion_matrix(all_labels, all_preds)
-    plot_confusion_matrix(cm, skip_null_class, setting, name)
-    plot_confusion_matrix_percentage(cm, skip_null_class, setting, name)
+
+    plot_confusion_matrix(cm, skip_null_class, vis_path, name)
+    plot_confusion_matrix_percentage(cm, skip_null_class, vis_path, name)
 
     # attn weight
-    cat_attn_weights = torch.cat(cat_attn_weights, dim=0)
-    visualize_attention_heatmap(cat_attn_weights, 
-                                ['l_cap', 'r_cap', 'l_acc', 'r_acc', 'l_gyro', 'r_gyro', 'l_quat', 'r_quat'], 
-                                os.path.join(f"saved/{setting}")
-                                )
+    cat_attn_weights = torch.cat(all_attn_weights, dim=0)
+    correct_attn_weights_cnt = 0
+    incorrect_attn_weights_cnt = 0
 
+    for i, (label, pred, attn_weight_i) in enumerate(zip(all_labels, all_preds, cat_attn_weights)):
+        if label == pred and correct_attn_weights_cnt < 2:
+            visualize_attention_heatmap(attn_weight_i, 
+                                ['l_cap', 'r_cap', 'l_acc', 'r_acc', 'l_gyro', 'r_gyro', 'l_quat', 'r_quat'], 
+                                os.path.join(vis_path, f"correct_attn_weight_{i}.png")
+                                )
+            correct_attn_weights_cnt += 1
+        
+        elif label != pred and incorrect_attn_weights_cnt < 2:
+            visualize_attention_heatmap(attn_weight_i, 
+                                ['l_cap', 'r_cap', 'l_acc', 'r_acc', 'l_gyro', 'r_gyro', 'l_quat', 'r_quat'], 
+                                os.path.join(vis_path, f"incorrect_attn_weight_{i}.png")
+                                )
+            incorrect_attn_weights_cnt += 1
+            
+        if correct_attn_weights_cnt == 2 and incorrect_attn_weights_cnt == 2:
+            break
+
+    
 
     logger.info(
         f"Test Phase Completed - Average Test Loss: {test_loss:.4f}, "

@@ -1,8 +1,9 @@
+import os
 import mlflow
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import ConfusionMatrixDisplay
-
+import matplotlib.colors as mcolors
 
 label_map = {
     'brake': 0, 'brake_fire_left': 1, 'brake_fire_right': 2, 'come_close': 3, 'cut_engine_left': 4, 'cut_engine_right': 5,
@@ -29,7 +30,7 @@ def log_metrics_to_mlflow(epoch, phase, loss, f1):
     # mlflow.log_metric(f"{phase}_f2_score", f2, step=epoch)
 
 
-def plot_confusion_matrix(cm, skip_null_class, setting, name):
+def plot_confusion_matrix(cm, skip_null_class, path, name):
     # Filter labels
     filtered_items = [(label, idx) for label, idx in label_map.items()
                       if label != 'claps' and (label != 'NULL_CLASS' or not skip_null_class)]
@@ -52,7 +53,7 @@ def plot_confusion_matrix(cm, skip_null_class, setting, name):
     n_classes = len(label_names)
 
     # Make diagonal values bold and white
-    for i, text in enumerate(disp.text_):
+    for i, text in enumerate(disp.text_.ravel()):
         row = i // n_classes
         col = i % n_classes
         if row == col:  # diagonal only
@@ -62,12 +63,12 @@ def plot_confusion_matrix(cm, skip_null_class, setting, name):
     plt.title('Confusion Matrix')
     plt.tight_layout()
 
-    plt_path = f'saved/{setting}/{name}_confusion_matrix.png'
+    plt_path = os.path.join(path, f"conf_matrix.png")
     plt.savefig(plt_path)
     mlflow.log_artifact(plt_path)
     plt.close()
 
-def plot_confusion_matrix_percentage(cm, skip_null_class, setting, name):
+def plot_confusion_matrix_percentage(cm, skip_null_class, path, name):
         # Filter labels
      # Filter labels
     filtered_items = [(label, idx) for label, idx in label_map.items()
@@ -107,14 +108,11 @@ def plot_confusion_matrix_percentage(cm, skip_null_class, setting, name):
     plt.title('Confusion Matrix (Percentages)')
     plt.tight_layout()
 
-    plt_path = f'saved/{setting}/{name}_confusion_matrix_percentage.png'
+    plt_path = os.path.join(path, f"conf_matrix_pct.png")
     plt.savefig(plt_path)  
     mlflow.log_artifact(plt_path)  
     plt.close()
 
-
-import matplotlib.pyplot as plt
-import numpy as np
 
 def visualize_attention_heatmap(attention_matrix, modalities, file_path=None):
     """
@@ -136,7 +134,14 @@ def visualize_attention_heatmap(attention_matrix, modalities, file_path=None):
 
     # Create the heatmap plot
     plt.figure(figsize=(10, 8))
-    plt.imshow(attention_matrix, cmap='viridis')
+
+    # cmap = plt.cm.get_cmap("inferno")
+    # shifted_cmap = mcolors.LinearSegmentedColormap.from_list(
+    #     "shifted_inferno", cmap(np.linspace(0.3, 1, 256))
+    # )
+
+    # plt.imshow(attention_matrix, cmap=shifted_cmap)
+    plt.imshow(attention_matrix, cmap="viridis")
     
     # Set the title and labels
     plt.title('Attention Weights Heatmap')
