@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import random
+import time
 from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay
 import torch
 import torch.nn.functional as F
@@ -17,10 +18,13 @@ def train(model,
           epochs, 
           num_classes,
           device,
-          logger):
+          logger,
+          setting,
+          name):
     
     # Early stopper
     early_stopper = EarlyStopper(logger, patience=5, min_delta=0)
+    start_time = time.time()
 
     for epoch in range(epochs):
         logger.info(f"Epoch: {epoch + 1}/{epochs} - Starting Training Phase")
@@ -34,7 +38,6 @@ def train(model,
             data, labels = data['data'], data['label']
             labels = labels.to(device)
 
-        
             # Convert one-hot encoded labels to class indices
             labels_onehot = F.one_hot(labels, num_classes).float()
 
@@ -105,7 +108,19 @@ def train(model,
         if early_stopper.early_stop(val_loss):
             logger.info("Early stopping triggered")
             break
+    
+    # Measure training time
+    end_time = time.time()
+    elapsed_time_seconds = end_time - start_time
+    elapsed_time_hours = elapsed_time_seconds / 3600
+    time_str = f"Training Time: {elapsed_time_hours:.4f} hrs\n"
 
+    with open(os.path.join("saved", setting, "model_info.txt"), "a") as profile_log:
+        profile_log.write(time_str + "\n")
+
+    logger.info(time_str)
+
+    return elapsed_time_hours
 
 def test(model, 
          model_name,

@@ -36,32 +36,42 @@ def main(args):
 
     score_log = open(os.path.join(score_log_file_path, "score.txt"), "a")
 
+    # Train Time 
+    train_time_list = []
+
+    # LOSO
     if args.loso:
         f_macro_list_loso = []
         for i, loso_set in enumerate(loso_sets):
             train_set = loso_set['train']
             test_set = loso_set['test']
             logger.info(f"Running LOSO experiment {i + 1}/{len(loso_sets)}")
-            score = run_mlflow_experiment(args, logger, f"LOSO_Experiment_{i + 1}", train_set, test_set, device, score_log, setting_str)
+            score, time = run_mlflow_experiment(args, logger, f"LOSO_Experiment_{i + 1}", train_set, test_set, device, score_log, setting_str)
             f_macro_list_loso.append(score)
+            train_time_list.append(time)
 
         score_log.write(f"      [LOSO] F1 Macro: mean={np.mean(f_macro_list_loso):.7f}, std={np.std(f_macro_list_loso):.7f}\n")
         score_log.write("----------------------------------------------------------------------------------------\n")
         score_log.flush()
 
-
+    # LOPO
     if args.lopo:
         f_macro_list_lopo = []
         for i, lopo_set in enumerate(lopo_sets):
             train_set = lopo_set['train']
             test_set = lopo_set['test']
             logger.info(f"Running LOPO experiment {i + 1}/{len(lopo_sets)}")
-            score = run_mlflow_experiment(args, logger, f"LOPO_Experiment_{i + 1}", train_set, test_set, device, score_log, setting_str)
+            score, time = run_mlflow_experiment(args, logger, f"LOPO_Experiment_{i + 1}", train_set, test_set, device, score_log, setting_str)
             f_macro_list_lopo.append(score)
+            train_time_list.append(time)
 
         score_log.write(f"      [LOPO] F1 Macro: mean={np.mean(f_macro_list_lopo):.7f}, std={np.std(f_macro_list_lopo):.7f}\n")
         score_log.flush()
 
+    # Average Train Time
+    avg_train_time = sum(train_time_list) / len(train_time_list)
+    with open(os.path.join("saved", setting_str, "model_info.txt"), "a") as profile_log:
+        profile_log.write(f"    Avg Trainig Time: {avg_train_time:.4f}" + "\n")
 
 if __name__ == '__main__':
     args = get_args()

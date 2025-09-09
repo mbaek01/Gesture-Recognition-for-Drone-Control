@@ -1,6 +1,10 @@
+import torch.nn as nn
+import torch
+from thop import profile
+import os
+
 from model.feature_fusion import Feature_Fusion
 from model.llr_fusion import LLR_Fusion
-
 
 def get_model(args):
     
@@ -29,3 +33,49 @@ def get_model(args):
         raise NotImplementedError
 
     return model
+
+
+def get_model_size(model: nn.Module):
+    """Calculates the model size in megabytes (MB)."""
+    param_size = 0
+    for param in model.parameters():
+        param_size += param.nelement() * param.element_size()
+        
+    buffer_size = 0
+    for buffer in model.buffers():
+        buffer_size += buffer.nelement() * buffer.element_size()
+
+    size_all_mb = (param_size + buffer_size) / 1024**2
+    return size_all_mb
+
+
+def get_model_profile(model: nn.Module, batch_size, device, logger, name, path):
+    dummy_input = {'l_cap': torch.randn(batch_size, 100, 4), # (B, Seq_Len, Features)
+                    'r_cap': torch.randn(batch_size, 100, 4),
+                    'l_acc': torch.randn(batch_size, 100, 3),
+                    'r_acc': torch.randn(batch_size, 100, 3),
+                    'l_gyro': torch.randn(batch_size, 100, 3),
+                    'r_gyro': torch.randn(batch_size, 100, 3),
+                    'l_quat': torch.randn(batch_size, 100, 4),
+                    'r_quat': torch.randn(batch_size, 100, 4), 
+                    }
+
+    macs, _ = profile(model, inputs=(dummy_input, device))
+    model_size = get_model_size(model)
+
+
+    # Convert MACs to GFLOPs (1 GFLOPs ≈ 2 GMACs)
+    gflops = (macs * 2) / 1e9
+
+    # log
+    profile_str = f"[{name}]\n GFLOPs: {gflops:.2f} \n Model Size: {model_size:.2f} MB \n"
+
+    profile_log = open(os.path.join(path, "model_info.txt"), "a")
+
+    profile_log.write(profile_str)
+    profile_log.write("----------------------------------------------------------------------------------------\n")
+    profile_log.flush()
+
+    
+    logger.info(profile_str)
+

@@ -1,5 +1,5 @@
 import mlflow
-
+import os
 import torch.nn as nn
 import torch
 from torch.utils.data import DataLoader
@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 
 from dataloader.utils import NormalizeSensorData
 from dataloader.dataloader import SensorDataset
-from model.model import get_model
+from model.model import get_model, get_model_profile
 from trainer.trainer import train, test
 
 NULL_CLASS = 'null_class'
@@ -85,6 +85,9 @@ def run_mlflow_experiment(args, logger, name, train_set, test_set, device, score
         model = get_model(args)
         model.to(device)
 
+        # Model Info 
+        get_model_profile(model, args.batch_size, device, logger, name, os.path.join("saved", setting))
+
         ###################
 
 
@@ -101,15 +104,17 @@ def run_mlflow_experiment(args, logger, name, train_set, test_set, device, score
         }
 
         # Training and testing
-        train(model, 
-            train_loader, 
-            val_loader,
-            optimizer, 
-            criterion, 
-            args.epochs,
-            args.num_classes,
-            device,
-            logger)
+        train_time = train(model, 
+                            train_loader, 
+                            val_loader,
+                            optimizer, 
+                            criterion, 
+                            args.epochs,
+                            args.num_classes,
+                            device,
+                            logger,
+                            setting,
+                            name)
         
         score = test(model, 
                      args.model,
@@ -130,7 +135,7 @@ def run_mlflow_experiment(args, logger, name, train_set, test_set, device, score
         score_log.write(metrics_str)
         score_log.write("----------------------------------------------------------------------------------------\n")
         score_log.flush()
-    return score
+    return score, train_time
 
 def log_parameters(args, logger):
     """Log parameters to logger and MLflow."""

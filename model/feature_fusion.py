@@ -53,6 +53,3 @@ class Feature_Fusion(nn.Module):
         out = self.fc(all_modalities)
         
         return out, att_weights
-    
-    def number_of_parameters(self):
-        return sum(p.numel() for p in self.parameters() if p.requires_grad)
