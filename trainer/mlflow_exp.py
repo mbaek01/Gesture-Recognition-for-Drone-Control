@@ -10,6 +10,7 @@ from dataloader.dataloader import SensorDataset
 from model.model import get_model
 from trainer.trainer import train, test
 
+NULL_CLASS = 'null_class'
 
 def run_mlflow_experiment(args, logger, name, train_set, test_set, device, score_log, setting):
 
@@ -93,6 +94,12 @@ def run_mlflow_experiment(args, logger, name, train_set, test_set, device, score
         )
         criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 
+        label_map = {
+            'brake': 0, 'brake_fire_left': 1, 'brake_fire_right': 2, 'come_close': 3, 'cut_engine_left': 4, 'cut_engine_right': 5,
+            'down': 6, 'engine_start_left': 7, 'engine_start_right': 8, 'follow': 9, 'left': 10, 'move_away': 11, 'negative': 12,
+            'release_brake': 13, 'right': 14, 'slow_down': 15, 'stop': 16, 'straight': 17, 'take_photo': 18, 'up': 19, NULL_CLASS: 20, 'claps': 21,
+        }
+
         # Training and testing
         train(model, 
             train_loader, 
@@ -105,10 +112,11 @@ def run_mlflow_experiment(args, logger, name, train_set, test_set, device, score
             logger)
         
         score = test(model, 
+                     args.model,
                     test_loader, 
-                    criterion, 
-                    device,
+                    label_map, 
                     args.num_classes,
+                    device,
                     args.skip_null_class,
                     logger,
                     setting,

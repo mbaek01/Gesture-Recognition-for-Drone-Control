@@ -72,7 +72,7 @@ class SensorDataset(Dataset):
         TODO: skip claps label windows or not?
 
         """
-        label_map = {
+        self.label_map = {
             'brake': 0, 'brake_fire_left': 1, 'brake_fire_right': 2, 'come_close': 3, 'cut_engine_left': 4, 'cut_engine_right': 5,
             'down': 6, 'engine_start_left': 7, 'engine_start_right': 8, 'follow': 9, 'left': 10, 'move_away': 11, 'negative': 12,
             'release_brake': 13, 'right': 14, 'slow_down': 15, 'stop': 16, 'straight': 17, 'take_photo': 18, 'up': 19, NULL_CLASS: 20, 'claps': 21,
@@ -185,7 +185,7 @@ class SensorDataset(Dataset):
                 self.r_gyro_list.append(r_gyro_data)
                 self.l_quat_list.append(l_quat_data)
                 self.r_quat_list.append(r_quat_data)
-                self.label_list.append(label_map[label])
+                self.label_list.append(self.label_map[label])
 
             # assert lengths og all lists are equal
         assert len(self.l_cap_list) == len(self.r_cap_list) == len(self.l_acc_list) == len(self.r_acc_list) == len(

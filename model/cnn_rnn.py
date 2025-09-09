@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F  
 
-from model.temporal_fusion import BidLSTM, temporal_GRU, temporal_LSTM, Temporal_Weighted_Aggregation, SelfAttention, SelfAttention_Gamma, FC
+from model.temporal_fusion import BidLSTM, temporal_GRU, temporal_LSTM, Temporal_Weighted_Aggregation
 
 temporal = {
     "bidlstm": BidLSTM,
@@ -10,21 +10,19 @@ temporal = {
     "gru": temporal_GRU
 }
 
-modality_aggregation = {
-    "fc": FC,
-    "attn": SelfAttention,
-    "attn_gamma": SelfAttention_Gamma
-}
+# modality_aggregation = {
+#     "fc": FC,
+#     "attn": SelfAttention,
+#     "attn_gamma": SelfAttention_Gamma
+# }
 
 
 class CNN_RNN(nn.Module):
     def __init__(self, 
-                 num_classes, 
                  num_conv_layers, 
                  temporal_module, 
                  num_temp_layers, 
                  temp_agg, 
-                 fusion_method,
                  hidden_dim, 
                  kernel_size):
         super().__init__()
@@ -54,9 +52,9 @@ class CNN_RNN(nn.Module):
         else:
             self.temp_agg = None
 
-        self.modality_fusion = modality_aggregation[fusion_method](self.hidden_dim)
+        # self.modality_fusion = modality_aggregation[fusion_method](self.hidden_dim)
 
-        self.fc = nn.Linear(self.hidden_dim, num_classes)
+        # self.fc = nn.Linear(self.hidden_dim, num_classes)
 
     def _conv_block(self, num_conv_layers, in_channel, out_channel, kernel_size):
         layers_conv = []
@@ -110,8 +108,10 @@ class CNN_RNN(nn.Module):
             
         concat_output = torch.stack(temp_hidden_states, dim=1)
 
-        all_modalities, att_weights = self.modality_fusion(concat_output)
+        return concat_output
+
+        # all_modalities, att_weights = self.modality_fusion(concat_output)
         
-        out = self.fc(all_modalities)
+        # out = self.fc(all_modalities)
         
-        return out, att_weights
+        # return out, att_weights

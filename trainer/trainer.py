@@ -1,10 +1,12 @@
 import os
 import numpy as np
+import random
 from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay
 import torch
 import torch.nn.functional as F
+from collections import Counter
 
-from trainer.utils import log_metrics_to_mlflow, plot_confusion_matrix, plot_confusion_matrix_percentage, visualize_attention_heatmap
+from trainer.utils import log_metrics_to_mlflow, plot_confusion_matrix, plot_confusion_matrix_percentage, attention_heatmap_per_label, plot_avg_contributions
 
 
 def train(model, 
@@ -106,10 +108,11 @@ def train(model,
 
 
 def test(model, 
+         model_name,
          test_loader, 
-         criterion, 
-         device, 
+         label_map, 
          num_classes,
+         device, 
          skip_null_class, 
          logger,
          setting,
@@ -117,71 +120,92 @@ def test(model,
     
     logger.info("Starting Test Phase")
     model.eval()
-    test_loss = 0
     all_preds = []
     all_labels = []
-    all_attn_weights = []
 
+    # saved for ablation study
+    if model_name == "feature_fusion":
+        all_attn_weights = []
+
+    elif model_name == "llr_fusion":
+        correct_llrs = {modality_name: [] for modality_name, _ in model.modalities}
+        
+
+    # Test
     with torch.no_grad():
         for batch_idx, data in enumerate(test_loader):
             data, labels = data['data'], data['label']
             labels = labels.to(device)
 
-            output, attn_weight = model(data, device)
+            output, sub = model(data, device)
             preds = torch.argmax(output, dim=1).cpu().numpy()
-            all_preds.extend(preds)
-            all_labels.extend(labels.cpu().numpy())
+            labels = labels.cpu().numpy()
 
             # attn weight analysis
-            all_attn_weights.append(attn_weight.detach().cpu())
+            if model_name == "feature_fusion":
+                all_attn_weights.append(sub.detach().cpu())
 
-    test_loss /= len(test_loader)
+            # llr analysis
+            elif model_name == "llr_fusion":
+                correct_mask = (preds == labels)
+
+                for modality_name, llr_tensor in sub.items():
+                    if correct_mask.any():
+                        # filter both logits and labels with the same mask
+                        filtered_llrs   = llr_tensor[correct_mask].detach().cpu().numpy()
+                        filtered_labels = labels[correct_mask]
+
+                        # save as (llrs, labels) tuple
+                        correct_llrs[modality_name].append((filtered_llrs, filtered_labels))
+
+            all_preds.extend(preds)
+            all_labels.extend(labels)
+
     f1 = f1_score(all_labels, all_preds, average='macro')
 
-    # confusion matrix
+    
+    # if model_name == "llr_fusion": # for random sampling
+    #     for modality_name in correct_llrs.keys():
+    #         random.shuffle(correct_llrs[modality_name])
+    
 
+    # confusion matrix
     vis_path = os.path.join(f"saved/{setting}", name)
 
     if not os.path.exists(vis_path):
-            os.makedirs(vis_path)
+        os.makedirs(vis_path)
 
     cm = confusion_matrix(all_labels, all_preds)
 
     plot_confusion_matrix(cm, skip_null_class, vis_path, name)
     plot_confusion_matrix_percentage(cm, skip_null_class, vis_path, name)
 
-    # attn weight
-    cat_attn_weights = torch.cat(all_attn_weights, dim=0)
-    correct_attn_weights_cnt = 0
-    incorrect_attn_weights_cnt = 0
+    # LLR Fusion: LLR contribution in class pred
+    if model_name == "llr_fusion":
 
-    for i, (label, pred, attn_weight_i) in enumerate(zip(all_labels, all_preds, cat_attn_weights)):
-        if label == pred and correct_attn_weights_cnt < 2:
-            visualize_attention_heatmap(attn_weight_i, 
-                                ['l_cap', 'r_cap', 'l_acc', 'r_acc', 'l_gyro', 'r_gyro', 'l_quat', 'r_quat'], 
-                                os.path.join(vis_path, f"correct_attn_weight_{i}.png")
-                                )
-            correct_attn_weights_cnt += 1
-        
-        elif label != pred and incorrect_attn_weights_cnt < 2:
-            visualize_attention_heatmap(attn_weight_i, 
-                                ['l_cap', 'r_cap', 'l_acc', 'r_acc', 'l_gyro', 'r_gyro', 'l_quat', 'r_quat'], 
-                                os.path.join(vis_path, f"incorrect_attn_weight_{i}.png")
-                                )
-            incorrect_attn_weights_cnt += 1
-            
-        if correct_attn_weights_cnt == 2 and incorrect_attn_weights_cnt == 2:
-            break
+        # concatenate all tuples into tensors per modality
+        for modality_name in correct_llrs:
+            if correct_llrs[modality_name]:
+                llrs_list, labels_list = zip(*correct_llrs[modality_name])
+                correct_llrs[modality_name] = (
+                    np.concatenate(llrs_list, axis=0),
+                    np.concatenate(labels_list, axis=0)
+                )
 
-    
+        # plot contributions
+        plot_avg_contributions(correct_llrs, label_map, num_classes, vis_path, logger)
+
+    # Feature Fusion: attention weight heat map
+    if model_name == "feature_fusion":
+        attention_heatmap_per_label(all_attn_weights, all_labels, all_preds, label_map, model.modalities, vis_path)
+
 
     logger.info(
-        f"Test Phase Completed - Average Test Loss: {test_loss:.4f}, "
-        f"F1 Score: {f1: .4f}"
+        f"Test Phase Completed - F1 Score: {f1: .4f}"
     )
 
     # Log metrics to MLflow
-    log_metrics_to_mlflow(0, "test", test_loss, f1)
+    log_metrics_to_mlflow(0, "test", 0, f1)
 
     return f1
 

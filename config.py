@@ -15,7 +15,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="Gesture Recognition for Drone Control")
 
     # Dataset-related arguments
-    parser.add_argument('--model', type=str, default='cnn_rnn',
+    parser.add_argument('--model', type=str, default='llr_fusion',
                         help='model name')
     # parser.add_argument('--dataset_version', type=str, default='v1',
     #                     help='model version: v1, v3 only valid for model version v1 and v1-improved')

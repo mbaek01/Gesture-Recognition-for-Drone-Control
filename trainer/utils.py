@@ -1,4 +1,6 @@
 import os
+import random
+import torch
 import mlflow
 import matplotlib.pyplot as plt
 import numpy as np
@@ -114,7 +116,7 @@ def plot_confusion_matrix_percentage(cm, skip_null_class, path, name):
     plt.close()
 
 
-def visualize_attention_heatmap(attention_matrix, modalities, file_path=None):
+def visualize_attention_heatmap(attention_matrix, modalities, label_str, file_path=None):
     """
     Visualizes an attention matrix as a heatmap.
 
@@ -144,7 +146,7 @@ def visualize_attention_heatmap(attention_matrix, modalities, file_path=None):
     plt.imshow(attention_matrix, cmap="viridis")
     
     # Set the title and labels
-    plt.title('Attention Weights Heatmap')
+    plt.title(f'Attention Weights Heatmap - {label_str}')
     plt.xlabel('Keys (Modalities Paying Attention)')
     plt.ylabel('Queries (Modalities Receiving Attention)')
     
@@ -162,3 +164,94 @@ def visualize_attention_heatmap(attention_matrix, modalities, file_path=None):
     # Save the plot to a file if a file path is provided
     if file_path:
         plt.savefig(file_path)
+
+def attention_heatmap_per_label(all_attn_weights, all_labels, all_preds, label_map, modalities, vis_path):
+    # attn weight
+    cat_attn_weights = torch.cat(all_attn_weights, dim=0)
+
+    # attn weight idx per label (when correctly labeled)
+    idx_to_label = {v:k for k,v in label_map.items()}
+    correct_label_idx = {k:[] for k in label_map.keys()}
+
+    for i, (label, pred) in enumerate(zip(all_labels, all_preds)):
+        if label == pred:
+            label_str = idx_to_label[pred]
+            correct_label_idx[label_str].append(i)
+    
+    # Random sampling of attention weight indices
+    sampled_label_idx = {k: random.sample(v, 20) for k,v in correct_label_idx}
+
+    modalities = [mod_name for mod_name, _ in modalities]
+
+    for label_str in sampled_label_idx.keys():
+        idx_list = sampled_label_idx[label_str]
+        for i in idx_list:
+            curr_path = os.path.join(vis_path, label_str)
+            if not os.path.exists(curr_path):
+                os.makedir(curr_path)
+                
+            visualize_attention_heatmap(cat_attn_weights[i],
+                                        label_str,
+                                        modalities,
+                                        os.path.join(curr_path, f"attn_weight_{label_str}_{i}.png"))
+            
+
+def plot_avg_contributions(llrs_dict, label_map, num_classes, save_path, logger):
+    """
+    Plots and saves average modality contributions to class predictions using
+    the inverted magnitude method and different colors for each modality.
+    
+    Args:
+        llrs_dict (dict): Dictionary of modality -> (all_llrs, all_labels)
+        label_map (dict): Dictionary mapping string labels to integer indices.
+        num_classes (int): The total number of classes.
+        save_path (str): Path to the directory where plots will be saved.
+        logger: A logger object for logging information.
+    """
+    # Create the save directory if it doesn't exist
+    os.makedirs(save_path, exist_ok=True)
+    
+    idx_to_label = {v:k for k,v in label_map.items()}
+
+    # Calculate mean LLR per modality, per class
+    avg_contrib = {modality: np.zeros(num_classes) for modality in llrs_dict}
+
+    for modality, (all_llrs, all_labels) in llrs_dict.items():
+        for c in range(num_classes):
+            mask = all_labels == c
+            if mask.sum() > 0:
+                avg_contrib[modality][c] = all_llrs[mask, c].mean()
+
+    modalities = list(avg_contrib.keys())
+
+    # cmap per modality
+    cmap = plt.cm.get_cmap('viridis', len(modalities))
+    colors = [cmap(i) for i in range(len(modalities))]
+
+    for c in range(num_classes):
+        class_name = idx_to_label.get(c, f"Unknown Class {c}")
+        
+        contributions = [avg_contrib[mod][c] for mod in modalities]
+        
+        if np.sum(np.abs(contributions)) == 0:
+            logger.info(f"Skipping plot for class '{class_name}' as there is no data.")
+            continue
+
+        magnitudes = np.abs(np.array(contributions))
+        epsilon = 1e-9
+        contribution_scores = 1 / (magnitudes + epsilon)
+
+        plt.figure(figsize=(8, 5))
+        
+        plt.bar(modalities, contribution_scores, color=colors)
+        
+        plt.xlabel("Modality")
+        plt.ylabel("Contribution Score (1 / LLR Magnitude)")
+        plt.title(f"Modality Contribution Score for Class: '{class_name}'")
+        plt.xticks(rotation=45, ha="right")
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        
+        safe_class_name = class_name.replace(" ", "_").replace("/", "_")
+        plot_filename = os.path.join(save_path, f"avg_contrib_{safe_class_name}.png")
+        plt.savefig(plot_filename, bbox_inches="tight")
+        plt.close()
