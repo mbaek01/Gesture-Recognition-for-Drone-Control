@@ -9,6 +9,7 @@ class LLR_Fusion(nn.Module):
     for each modality.
     """
     def __init__(self, 
+                 modalities,
                  num_classes, 
                  num_conv_layers, 
                  temporal_module, 
@@ -18,7 +19,8 @@ class LLR_Fusion(nn.Module):
                  kernel_size):
         super().__init__()
         
-        self.feature_extractor = CNN_RNN(num_conv_layers, 
+        self.feature_extractor = CNN_RNN(modalities,
+                                        num_conv_layers, 
                                         temporal_module, 
                                         num_temp_layers, 
                                         temp_agg, 
@@ -68,9 +70,6 @@ class LLR_Fusion(nn.Module):
         # Return the dictionary for easy visualization
         return summed_llr, per_modality_llrs
 
-    def number_of_parameters(self):
-        return sum(p.numel() for p in self.parameters() if p.requires_grad)
-    
 
 def calculate_all_llrs(logits):
     """

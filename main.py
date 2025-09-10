@@ -7,7 +7,7 @@ import numpy as np
 from config import get_args
 from dataloader.utils import generate_all_sessions, generate_loso_lopo_sets
 from trainer.mlflow_exp import run_mlflow_experiment
-from utils import set_device, set_seed
+from utils import set_device, set_seed, save_config_json
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +32,12 @@ def main(args):
     setting_str = f"{args.model}_{args.temporal_module}_temp_agg-{args.temp_agg}_{args.fusion_method}_{args.hidden_dim}_conv-{args.num_conv_layers}_rnn-{args.num_temp_layers}_{timestamp}"
     score_log_file_path = os.path.join(args.save_path, setting_str)          
     if not os.path.exists(score_log_file_path):
-            os.makedirs(score_log_file_path)
+        os.makedirs(score_log_file_path)
 
     score_log = open(os.path.join(score_log_file_path, "score.txt"), "a")
+
+    # Save config
+    save_config_json(args, score_log_file_path)
 
     # Train Time 
     train_time_list = []

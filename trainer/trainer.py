@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from collections import Counter
 
-from trainer.utils import log_metrics_to_mlflow, plot_confusion_matrix, plot_confusion_matrix_percentage, attention_heatmap_per_label, plot_avg_contributions
+from trainer.utils import log_metrics_to_mlflow, plot_confusion_matrix, plot_confusion_matrix_percentage, attention_heatmap_per_label, plot_avg_contributions, plot_n_random_samples_per_class
 
 
 def train(model, 
@@ -19,8 +19,7 @@ def train(model,
           num_classes,
           device,
           logger,
-          setting,
-          name):
+          setting):
     
     # Early stopper
     early_stopper = EarlyStopper(logger, patience=5, min_delta=0)
@@ -178,11 +177,6 @@ def test(model,
 
     f1 = f1_score(all_labels, all_preds, average='macro')
 
-    
-    # if model_name == "llr_fusion": # for random sampling
-    #     for modality_name in correct_llrs.keys():
-    #         random.shuffle(correct_llrs[modality_name])
-    
 
     # confusion matrix
     vis_path = os.path.join(f"saved/{setting}", name)
@@ -207,11 +201,15 @@ def test(model,
                     np.concatenate(labels_list, axis=0)
                 )
 
-        # plot contributions
+        #  LLR contributions of each label's first 10 correct predictions
+        plot_n_random_samples_per_class(correct_llrs, label_map, num_classes, vis_path, logger)
+
+        # Avg LLR contributions
         plot_avg_contributions(correct_llrs, label_map, num_classes, vis_path, logger)
 
     # Feature Fusion: attention weight heat map
     if model_name == "feature_fusion":
+        # cat_attn_weights = torch.cat(all_attn_weights, dim=0) 
         attention_heatmap_per_label(all_attn_weights, all_labels, all_preds, label_map, model.modalities, vis_path)
 
 

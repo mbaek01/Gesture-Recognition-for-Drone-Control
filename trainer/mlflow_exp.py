@@ -81,14 +81,21 @@ def run_mlflow_experiment(args, logger, name, train_set, test_set, device, score
                                 shuffle=False, collate_fn=SensorDataset.collate_fn)
 
         # Model
-
-        model = get_model(args)
+        all_modalities = {'l_cap':4, 
+                        'r_cap':4,
+                        'l_acc': 3, 
+                        'r_acc':3,
+                        'l_gyro':3,
+                        'r_gyro':3,
+                        'l_quat':4,
+                        'r_quat':4}
+        filtered_modalities = [(m, all_modalities[m]) for m in args.modalities]
+           
+        model = get_model(args, filtered_modalities)
         model.to(device)
 
-        # Model Info 
-        get_model_profile(model, args.batch_size, device, logger, name, os.path.join("saved", setting))
-
-        ###################
+        # Model Info - MFLOPs, size
+        get_model_profile(model, filtered_modalities, args.batch_size, device, logger, name, os.path.join("saved", setting))
 
 
         # Optimizer and loss function
@@ -113,8 +120,7 @@ def run_mlflow_experiment(args, logger, name, train_set, test_set, device, score
                             args.num_classes,
                             device,
                             logger,
-                            setting,
-                            name)
+                            setting)
         
         score = test(model, 
                      args.model,

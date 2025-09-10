@@ -15,6 +15,7 @@ class Feature_Fusion(nn.Module):
     Model for feature-level fusion, built on top of the CNN_RNN feature backbone.
     """
     def __init__(self, 
+                 modalities,
                  num_classes, 
                  num_conv_layers, 
                  temporal_module, 
@@ -25,7 +26,8 @@ class Feature_Fusion(nn.Module):
                  kernel_size):
         super().__init__()
         
-        self.feature_extractor = CNN_RNN(num_conv_layers, 
+        self.feature_extractor = CNN_RNN(modalities,
+                                        num_conv_layers, 
                                         temporal_module, 
                                         num_temp_layers, 
                                         temp_agg, 
@@ -45,8 +47,8 @@ class Feature_Fusion(nn.Module):
         # final classification head 
         self.fc = nn.Linear(self.hidden_dim, num_classes)
 
-    def forward(self, x):
-        concat_x = self.feature_extractor(x)
+    def forward(self, x, device):
+        concat_x = self.feature_extractor(x, device)
 
         all_modalities, att_weights = self.modality_fusion(concat_x)
         

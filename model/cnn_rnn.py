@@ -19,6 +19,7 @@ temporal = {
 
 class CNN_RNN(nn.Module):
     def __init__(self, 
+                 modalities,
                  num_conv_layers, 
                  temporal_module, 
                  num_temp_layers, 
@@ -27,8 +28,9 @@ class CNN_RNN(nn.Module):
                  kernel_size):
         super().__init__()
 
-        self.modalities = [('l_cap',4), ('r_cap',4), ('l_acc',3), ('r_acc',3), 
-                           ('l_gyro',3), ('r_gyro',3), ('l_quat',4), ('r_quat',4)]
+        self.modalities = modalities
+                        # [('l_cap',4), ('r_cap',4), ('l_acc',3), ('r_acc',3), 
+                        #    ('l_gyro',3), ('r_gyro',3), ('l_quat',4), ('r_quat',4)]
 
         self.hidden_dim = hidden_dim
         
@@ -83,35 +85,36 @@ class CNN_RNN(nn.Module):
         # Conv1D per modality
         conv_outputs = {}
         
-        for name, conv_block in self.conv_blocks.items():
-            input_data = x[name].to(device).transpose(1,2)    # (B, L, C)
+        for name, _ in self.modalities:
+            conv_block = self.conv_blocks[name]
+            modality_input = x[name].to(device).transpose(1,2)  # (B, L, C)
 
             for layer in conv_block:
-                input_data = layer(input_data)                # (B, C, L)
-
-            conv_outputs[name] = input_data.transpose(1,2)    # (B, C, L)
-
-        # RNN per modality
-        temp_hidden_states = []
-        for name, layer in self.temp_blocks.items():
-            # output from the previous conv step
-            temp_input = conv_outputs[name]
-
-            temp_output = layer(temp_input)
+                modality_input = layer(modality_input)
             
+            conv_outputs[name] = modality_input.transpose(1,2) # (B, C, L)
+            
+        # RNN per modality
+        temp_hidden_states = [] # same order of modality as self.modalities
+
+        for name, _ in self.modalities:
+            # temp layer
+            layer = self.temp_blocks[name]
+
+            # input
+            modality_input = conv_outputs[name]
+
+            # output
+            temp_output = layer(modality_input)
+
             if self.temp_agg:
                 temp_output = self.temp_agg(temp_output)
             else:
                 temp_output = temp_output[:, -1, :].squeeze(1)
             
             temp_hidden_states.append(temp_output)
-            
+
         concat_output = torch.stack(temp_hidden_states, dim=1)
 
         return concat_output
 
-        # all_modalities, att_weights = self.modality_fusion(concat_output)
-        
-        # out = self.fc(all_modalities)
-        
-        # return out, att_weights

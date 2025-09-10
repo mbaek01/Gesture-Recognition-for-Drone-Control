@@ -6,10 +6,11 @@ import os
 from model.feature_fusion import Feature_Fusion
 from model.llr_fusion import LLR_Fusion
 
-def get_model(args):
-    
+def get_model(args, filtered_modalities):
+
     if args.model == "feature_fusion":
-        model = Feature_Fusion(args.num_classes, 
+        model = Feature_Fusion(filtered_modalities,
+                                args.num_classes, 
                                 args.num_conv_layers, 
                                 args.temporal_module,
                                 args.num_temp_layers, 
@@ -20,7 +21,8 @@ def get_model(args):
                                 )
             
     elif args.model == "llr_fusion":
-        model = LLR_Fusion(args.num_classes, 
+        model = LLR_Fusion(filtered_modalities,
+                            args.num_classes, 
                             args.num_conv_layers, 
                             args.temporal_module,
                             args.num_temp_layers, 
@@ -49,16 +51,8 @@ def get_model_size(model: nn.Module):
     return size_all_mb
 
 
-def get_model_profile(model: nn.Module, batch_size, device, logger, name, path):
-    dummy_input = {'l_cap': torch.randn(batch_size, 100, 4), # (B, Seq_Len, Features)
-                    'r_cap': torch.randn(batch_size, 100, 4),
-                    'l_acc': torch.randn(batch_size, 100, 3),
-                    'r_acc': torch.randn(batch_size, 100, 3),
-                    'l_gyro': torch.randn(batch_size, 100, 3),
-                    'r_gyro': torch.randn(batch_size, 100, 3),
-                    'l_quat': torch.randn(batch_size, 100, 4),
-                    'r_quat': torch.randn(batch_size, 100, 4), 
-                    }
+def get_model_profile(model: nn.Module, modalities, batch_size, device, logger, name, path):
+    dummy_input = {m: torch.rand(batch_size, 100, channel) for m,channel in modalities}
 
     macs, _ = profile(model, inputs=(dummy_input, device))
     model_size = get_model_size(model)

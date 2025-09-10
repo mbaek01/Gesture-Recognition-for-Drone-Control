@@ -16,7 +16,7 @@ def get_args():
 
     # Dataset-related arguments
     parser.add_argument('--model', type=str, default='llr_fusion',
-                        help='model name')
+                        help='model name', choices=['llr_fusion', 'feature_fusion'])
     # parser.add_argument('--dataset_version', type=str, default='v1',
     #                     help='model version: v1, v3 only valid for model version v1 and v1-improved')
     parser.add_argument('--normalize', type=lambda x: x.lower() == 'true', default=True,
@@ -38,7 +38,7 @@ def get_args():
     parser.add_argument('--seed', type=int, default=42, help="random seed number")
     parser.add_argument('--gpu', default=0, type=int, help="gpu index number")
 
-    parser.add_argument('--epochs', type=int, default=100,
+    parser.add_argument('--epochs', type=int, default=150,
                         help='Number of training epochs')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size for data loaders')
@@ -67,11 +67,19 @@ def get_args():
     parser.add_argument('--num_classes', type=int,
                         default=20, help='Number of output classes')
     
+    # modalities to use in training
+    parser.add_argument('--modalities', 
+                        nargs='+',  # This is the key: accepts 1 or more arguments
+                        default=['l_cap', 'r_cap', 'l_acc', 'r_acc','l_gyro', 'r_gyro', 'l_quat', 'r_quat'],
+                        help='A space-separated list of modalities to use.')
+    
+    parser.add_argument('--temp_agg', type=str2bool, default=True, 
+                            help="Whether to use weighted sum of rnn's hidden state")
+
+    # for args.model == feature_fusion only
     parser.add_argument('--fusion_method', type=str, default='attn',
                         help="Modality fusion method", choices=['fc', 'attn', 'attn_gamma'])
-    parser.add_argument('--temp_agg', type=str2bool, default=True, 
-                        help="Whether to use weighted sum of rnn's hidden state")
-
+    
     args = parser.parse_args()
 
     if not args.skip_null_class:
