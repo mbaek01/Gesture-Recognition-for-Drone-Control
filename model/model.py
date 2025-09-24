@@ -67,7 +67,6 @@ def get_model_profile(model: nn.Module, modalities, batch_size, device, logger, 
     profile_log = open(os.path.join(path, "model_info.txt"), "a")
 
     profile_log.write(profile_str)
-    profile_log.write("----------------------------------------------------------------------------------------\n")
     profile_log.flush()
 
     

@@ -39,3 +39,18 @@ def save_config_json(args, save_path):
     # Save the dictionary to a file as a nicely formatted JSON
     with open(file_path, "w") as f:
         json.dump(model_args, f, indent=4)
+
+
+def log_metric_result(log_path, metric_list, exp_mode):
+    f1_list = [score[0] for score in metric_list]
+    precision_list = [score[1] for score in metric_list]
+    recall_list = [score[2] for score in metric_list]
+    time_list = [score[3] for score in metric_list]
+
+    with open(log_path, "a") as score_log:
+        score_log.write(f"      [{exp_mode}] F1 Macro:  mean={np.mean(f1_list):.4f}, std={np.std(f1_list):.4f}\n"
+                        f"             Precision: mean={np.mean(precision_list):.4f}, std={np.std(precision_list):.4f}\n"
+                        f"             Recall:    mean={np.mean(recall_list):.4f}, std={np.std(recall_list):.4f}\n"
+                        f"             Time:      mean={np.mean(time_list):.4f}, std={np.std(time_list):.4f}\n")
+        score_log.write("----------------------------------------------------------------------------------------\n")
+        score_log.flush()

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import ConfusionMatrixDisplay
 import matplotlib.colors as mcolors
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 label_map = {
     'brake': 0, 'brake_fire_left': 1, 'brake_fire_right': 2, 'come_close': 3, 'cut_engine_left': 4, 'cut_engine_right': 5,
@@ -47,32 +48,65 @@ def plot_confusion_matrix(cm, skip_null_class, path, name):
 
     # Plot
     plt.figure(figsize=(14, 12))
+    ax = plt.gca()  # Get the current axis
     disp = ConfusionMatrixDisplay(
         confusion_matrix=cm_filtered, display_labels=label_names)
+    
+    # --- START OF MODIFIED BLOCK ---
+    # 1. Plot *without* the automatic colorbar
     disp.plot(include_values=True, cmap='Blues',
-              xticks_rotation=90, ax=plt.gca())
+              xticks_rotation=90, ax=ax, colorbar=False) # Ensure colorbar is off
+    
+    # 2. Manually add the colorbar, explicitly passing 'ax=ax'
+    #    This forces the colorbar to match the height of the 'ax' object.
+    plt.colorbar(disp.im_, ax=ax)
+    # --- END OF MODIFIED BLOCK ---
     
     n_classes = len(label_names)
 
-    # Make diagonal values bold and white
+    # Make diagonal values bold and larger
     for i, text in enumerate(disp.text_.ravel()):
         row = i // n_classes
         col = i % n_classes
         if row == col:  # diagonal only
-            text.set_color("white")
             text.set_fontweight("bold")
+            text.set_fontsize(23)
+        else:
+            text.set_fontsize(18)
 
-    plt.title('Confusion Matrix')
+    # Apply font and label changes
+    # plt.title('Confusion Matrix (counts)', fontsize=22, fontname='Times New Roman') # Removed title
+    ax.set_xlabel("")  # Removed x-axis label
+    ax.set_ylabel("")  # Removed y-axis label
+    
+    # Remove x-tick labels, increase y-tick label font size
+    ax.set_xticklabels([])
+    plt.yticks(fontsize=22)
+    
+    # Set y-tick label font
+    for label in ax.get_yticklabels():
+        label.set_fontname('Times New Roman')
+
     plt.tight_layout()
 
-    plt_path = os.path.join(path, f"conf_matrix.png")
-    plt.savefig(plt_path)
-    mlflow.log_artifact(plt_path)
+    # --- UPDATED SAVING BLOCK ---
+    # Save as PNG
+    png_path = os.path.join(path, f"conf_matrix.png")
+    plt.savefig(png_path)
+    mlflow.log_artifact(png_path)
+    
+    # Save as PDF
+    pdf_path = os.path.join(path, f"conf_matrix.pdf")
+    plt.savefig(pdf_path, format='pdf')
+    mlflow.log_artifact(pdf_path)
+    # --- END UPDATED BLOCK ---
+    
     plt.close()
 
+# No new imports are needed for this method
+
 def plot_confusion_matrix_percentage(cm, skip_null_class, path, name):
-        # Filter labels
-     # Filter labels
+    # Filter labels
     filtered_items = [(label, idx) for label, idx in label_map.items()
                       if label != 'claps' and (label != 'NULL_CLASS' or not skip_null_class)]
 
@@ -86,37 +120,76 @@ def plot_confusion_matrix_percentage(cm, skip_null_class, path, name):
 
     # Calculate percentages
     cm_sum = cm_filtered.sum(axis=1)[:, np.newaxis]
-    cm_percentage = np.divide(cm_filtered, cm_sum, where=cm_sum != 0) * 100
+    cm_percentage = np.divide(cm_filtered, cm_sum,
+                              out=np.full_like(cm_filtered, np.nan, dtype=float),
+                              where=cm_sum != 0) * 100
 
     # Plot using percentages
     plt.figure(figsize=(14, 12))
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm_percentage, display_labels=label_names)
-    disp.plot(include_values=False, cmap='Blues', xticks_rotation=90, ax=plt.gca(), colorbar=True)
+    ax = plt.gca()  # Get the current axis
     
-    # Manually add text
-    ax = plt.gca()
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm_percentage, display_labels=label_names)
+
+    # --- START OF NEW METHOD ---
+    # 1. Plot *without* the automatic colorbar
+    disp.plot(include_values=False, cmap='Blues', xticks_rotation=90, ax=ax, colorbar=False)
+    
+    # 2. Manually add the colorbar, explicitly passing 'ax=ax'
+    #    This forces the colorbar to match the height of the 'ax' object.
+    plt.colorbar(disp.im_, ax=ax)
+    # --- END OF NEW METHOD ---
+    
+    # Manually add text with contrastive colors
+    cmap = disp.im_.cmap
+    norm = disp.im_.norm
 
     for (i, j), val in np.ndenumerate(cm_percentage):
         if not np.isnan(val):
-            if i == j:  # diagonal cell
-                ax.text(j, i, f"{val:.1f}%",
-                        ha='center', va='center',
-                        color='white', fontsize=9, fontweight='bold')
-            else:  # off-diagonal
-                ax.text(j, i, f"{val:.1f}%",
-                        ha='center', va='center',
-                        color='black', fontsize=8)
+            # Determine background color and luminance
+            bg_color = cmap(norm(val))
+            luminance = 0.299 * bg_color[0] + 0.587 * bg_color[1] + 0.114 * bg_color[2]
+            text_color = 'white' if luminance < 0.5 else 'black'
 
-    plt.title('Confusion Matrix (Percentages)')
+            if i == j:  # diagonal cell
+                ax.text(j, i, f"{val:.0f}",
+                        ha='center', va='center',
+                        color=text_color, fontsize=23, fontweight='bold')
+            else:  # off-diagonal
+                ax.text(j, i, f"{val:.0f}",
+                        ha='center', va='center',
+                        color=text_color, fontsize=18)
+
+    # Apply font and label changes
+    # plt.title('Confusion Matrix (%)', fontsize=22, fontname='Times New Roman') # Removed title
+    ax.set_xlabel("")  # Removed x-axis label
+    ax.set_ylabel("")  # Removed y-axis label
+
+    # Remove x-tick labels, increase y-tick label font size
+    ax.set_xticklabels([])
+    plt.yticks(fontsize=22)
+    
+    # Set y-tick label font
+    for label in ax.get_yticklabels():
+        label.set_fontname('Times New Roman')
+
     plt.tight_layout()
 
-    plt_path = os.path.join(path, f"conf_matrix_pct.png")
-    plt.savefig(plt_path)  
-    mlflow.log_artifact(plt_path)  
+    # --- UPDATED SAVING BLOCK ---
+    # Save as PNG
+    png_path = os.path.join(path, f"conf_matrix_pct.png")
+    plt.savefig(png_path)  
+    mlflow.log_artifact(png_path)
+    
+    # Save as PDF
+    pdf_path = os.path.join(path, f"conf_matrix_pct.pdf")
+    plt.savefig(pdf_path, format='pdf')
+    mlflow.log_artifact(pdf_path)
+    # --- END UPDATED BLOCK ---
+      
     plt.close()
 
 
-def visualize_attention_heatmap(attention_matrix, label_str, modalities, file_path=None):
+def visualize_attention_heatmap(attention_matrix, label_str, modalities, i, file_path=None):
     """
     Visualizes an attention matrix as a heatmap.
 
@@ -136,34 +209,30 @@ def visualize_attention_heatmap(attention_matrix, label_str, modalities, file_pa
 
     # Create the heatmap plot
     plt.figure(figsize=(10, 8))
-
-    # cmap = plt.cm.get_cmap("inferno")
-    # shifted_cmap = mcolors.LinearSegmentedColormap.from_list(
-    #     "shifted_inferno", cmap(np.linspace(0.3, 1, 256))
-    # )
-
-    # plt.imshow(attention_matrix, cmap=shifted_cmap)
     plt.imshow(attention_matrix, cmap="viridis")
-    
+
     # Set the title and labels
-    plt.title(f'Attention Weights Heatmap - {label_str}')
-    plt.xlabel('Attended Modality (Key)')
-    plt.ylabel('Receiving Modality (Query)')
-    
+    # plt.title(f'Attention Weights Heatmap for {label_str} - Random Sample #{i}', fontsize=18)
+    plt.xlabel('Attended Modality (Key)', fontsize=22)
+    plt.ylabel('Receiving Modality (Query)', fontsize=22)
+
     # Set the ticks and labels for the axes
-    plt.xticks(np.arange(num_modalities), modalities, rotation=45, ha='right')
-    plt.yticks(np.arange(num_modalities), modalities)
-    
+    plt.xticks(np.arange(num_modalities), modalities, rotation=45, ha='right', fontsize=22)
+    plt.yticks(np.arange(num_modalities), modalities, fontsize=22)
+
     # Add a color bar and adjust layout
-    plt.colorbar(label='Attention Weight')
+    cbar = plt.colorbar(label='Attention Weight')
+    cbar.set_label('Attention Weight', fontsize=20)
+    cbar.ax.tick_params(labelsize=18)
     plt.tight_layout()
-    
-    # Show the plot
-    plt.show()
 
     # Save the plot to a file if a file path is provided
     if file_path:
-        plt.savefig(file_path)
+        if not file_path.lower().endswith(".pdf"):
+            file_path = file_path.rsplit(".", 1)[0] + ".pdf"
+        plt.savefig(file_path, bbox_inches="tight", format="pdf")
+
+    plt.close()
 
 def attention_heatmap_per_label(all_attn_weights, all_labels, all_preds, label_map, modalities, vis_path):
     # attn weight
@@ -193,7 +262,9 @@ def attention_heatmap_per_label(all_attn_weights, all_labels, all_preds, label_m
             visualize_attention_heatmap(cat_attn_weights[i],
                                         label_str,
                                         modalities,
-                                        os.path.join(curr_path, f"attn_weight_{label_str}_{i}.png"))
+                                        i,
+                                        os.path.join(curr_path, f"attn_weight_{label_str}_{i}.pdf"),
+                                        )
 
 
 def _plot_contribution_chart(modalities, scores, colors, title, ylabel, save_path, filename):
@@ -212,17 +283,23 @@ def _plot_contribution_chart(modalities, scores, colors, title, ylabel, save_pat
     plt.figure(figsize=(8, 5))
     plt.bar(modalities, scores, color=colors)
     
-    plt.xlabel("Modality")
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.xticks(rotation=45, ha="right")
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    
+    plt.xlabel("Modality", fontsize=22)
+    plt.ylabel(ylabel, fontsize=22)
+    # plt.title(title, fontsize=22)
+
+    plt.xticks(rotation=45, ha="right", fontsize=22)
+    plt.yticks(fontsize=20)
+
+    plt.grid(axis='y', linestyle='--', alpha=0.7)    
     # Sanitize the filename and create the full save path
     safe_filename = filename.replace(" ", "_").replace("/", "_")
     plot_filepath = os.path.join(save_path, f"{safe_filename}.png")
     
-    plt.savefig(plot_filepath, bbox_inches="tight")
+    # plt.savefig(plot_filepath, bbox_inches="tight")
+
+    plot_filepath_pdf = os.path.join(save_path, f"{safe_filename}.pdf")
+    plt.savefig(plot_filepath_pdf, bbox_inches="tight")
+
     plt.close()
 
 
@@ -241,9 +318,18 @@ def plot_avg_contributions(llrs_dict, label_map, num_classes, save_path, logger)
             if mask.sum() > 0:
                 avg_contrib[modality][c] = all_llrs[mask, c].mean()
 
-    modalities = list(avg_contrib.keys())
-    cmap = plt.cm.get_cmap('viridis', len(modalities))
-    colors = [cmap(i) for i in range(len(modalities))]
+    # 1. Create a sorted, canonical list of ALL possible modalities. Sorting is key!
+    canonical_modalities = ['l_cap', 'r_cap', 'l_acc', 'r_acc', 'l_gyro', 'r_gyro', 'l_quat','r_quat']
+    
+    # 2. Create a persistent mapping (dictionary) from the name to a color
+    cmap = plt.cm.get_cmap('plasma', len(canonical_modalities))
+    modality_color_map = {mod_name: cmap(i) for i, mod_name in enumerate(canonical_modalities)}
+
+    # 3. Get the list of modalities for this calculation (the order matters for the bars)
+    modalities = list(avg_contrib.keys()) # This is the order they appear on the chart
+    
+    # 4. Build the FINAL colors list by LOOKING UP each modality in the stable map
+    colors = [modality_color_map[mod] for mod in modalities]
 
     # --- Plotting Loop ---
     for c in range(num_classes):
@@ -264,7 +350,7 @@ def plot_avg_contributions(llrs_dict, label_map, num_classes, save_path, logger)
             scores=contribution_scores,
             colors=colors,
             title=f"Avg. Modality Contribution for Class: '{class_name}'",
-            ylabel="Avg. Contribution Score (1 / LLR Magnitude)",
+            ylabel="Avg. Contribution (1 / |LLR|)",
             save_path=os.path.join(save_path,class_name),
             filename=f"avg_contrib_{class_name}"
         )
@@ -287,9 +373,16 @@ def plot_n_random_samples_per_class(llrs_dict, label_map, num_classes, save_path
     # Random Sampling  
     all_indices = list(range(num_samples))
     random.shuffle(all_indices)
+
+    # 1. Create a sorted, canonical list of ALL possible modalities.
+    canonical_modalities = ['l_cap', 'r_cap', 'l_acc', 'r_acc', 'l_gyro', 'r_gyro', 'l_quat','r_quat']
     
-    cmap = plt.cm.get_cmap('viridis', len(modalities))
-    colors = [cmap(i) for i in range(len(modalities))]
+    # 2. Create the persistent mapping
+    cmap = plt.cm.get_cmap('plasma', len(canonical_modalities))
+    modality_color_map = {mod_name: cmap(i) for i, mod_name in enumerate(canonical_modalities)}
+
+    # 3. Build the colors list by looking up colors for the calculation list ('modalities')
+    colors = [modality_color_map[mod] for mod in modalities]
 
     # Loop through each class
     for c in range(num_classes):
@@ -331,7 +424,19 @@ def plot_n_random_samples_per_class(llrs_dict, label_map, num_classes, save_path
                 scores=contribution_scores,
                 colors=colors,
                 title=title,
-                ylabel="Contribution Score (1 / LLR Magnitude)",
+                ylabel="Contribution (1 / |LLR|)",
                 save_path=class_save_path,
                 filename=f"random_sample_{i+1}"
             )
+
+
+def calculate_metrics(y_true, y_pred):
+    '''
+    precision and recall are ill-defined and being set to 0.0 in labels with no predicted samples
+    '''
+    
+    precision = precision_score(y_true, y_pred, average='macro', zero_division=0)
+    recall = recall_score(y_true, y_pred, average='macro', zero_division=0)
+    f1 = f1_score(y_true, y_pred, average='macro')
+
+    return precision, recall, f1

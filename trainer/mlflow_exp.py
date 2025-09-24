@@ -122,26 +122,28 @@ def run_mlflow_experiment(args, logger, name, train_set, test_set, device, score
                             logger,
                             setting)
         
-        score = test(model, 
-                     args.model,
-                    test_loader, 
-                    label_map, 
-                    args.num_classes,
-                    device,
-                    args.skip_null_class,
-                    logger,
-                    setting,
-                    name)
+        f1, precision, recall = test(model, 
+                                    args.model,
+                                    test_loader, 
+                                    label_map, 
+                                    args.num_classes,
+                                    device,
+                                    args.skip_null_class,
+                                    logger,
+                                    setting,
+                                    name)
         
         # Score log 
         metrics_str = (
-            f"  Test: {name} \n"
-            f"  F1 Macro: {score:.7f} \n")
+            f"Test: {name} \n"
+            f"    F1 Macro: {f1:.4f}\n"
+            f"    Precision: {precision:.4f}\n"
+            f"    Recall: {recall:.4f}\n")
         
         score_log.write(metrics_str)
         score_log.write("----------------------------------------------------------------------------------------\n")
         score_log.flush()
-    return score, train_time
+    return f1, precision, recall, train_time
 
 def log_parameters(args, logger):
     """Log parameters to logger and MLflow."""

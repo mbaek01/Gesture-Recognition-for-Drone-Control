@@ -40,7 +40,7 @@ def get_args():
 
     parser.add_argument('--epochs', type=int, default=150,
                         help='Number of training epochs')
-    parser.add_argument('--batch_size', type=int, default=64,
+    parser.add_argument('--batch_size', type=int, default=32,
                         help='Batch size for data loaders')
     parser.add_argument('--learning_rate', type=float,
                         default=0.0001, help='Learning rate for the optimizer')
@@ -60,7 +60,7 @@ def get_args():
     parser.add_argument('--num_temp_layers', type=int,
                         default=2, help='Number of temporal module layers')
     
-    parser.add_argument('--hidden_dim', type=int, default=128,
+    parser.add_argument('--hidden_dim', type=int, default=256,
                         help='Hidden size for CNN and LSTM layers')
     # parser.add_argument('--dropout', type=float, default=0.3,
     #                     help='Dropout rate for the model')

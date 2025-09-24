@@ -7,7 +7,8 @@ import torch
 import torch.nn.functional as F
 from collections import Counter
 
-from trainer.utils import log_metrics_to_mlflow, plot_confusion_matrix, plot_confusion_matrix_percentage, attention_heatmap_per_label, plot_avg_contributions, plot_n_random_samples_per_class
+from trainer.utils import log_metrics_to_mlflow, plot_confusion_matrix, plot_confusion_matrix_percentage, attention_heatmap_per_label, \
+    plot_avg_contributions, plot_n_random_samples_per_class, calculate_metrics
 
 
 def train(model, 
@@ -104,22 +105,24 @@ def train(model,
                               val_loss, 
                               f1)
 
-        if early_stopper.early_stop(val_loss):
-            logger.info("Early stopping triggered")
+        if early_stopper.early_stop(f1):
+            logger.info("Early stopping triggered on F1 score")
             break
     
     # Measure training time
     end_time = time.time()
     elapsed_time_seconds = end_time - start_time
-    elapsed_time_hours = elapsed_time_seconds / 3600
-    time_str = f"Training Time: {elapsed_time_hours:.4f} hrs\n"
+    elapsed_time_min = elapsed_time_seconds / 60
+    time_str = f"Training Time: {elapsed_time_min:.1f} min\n"
 
     with open(os.path.join("saved", setting, "model_info.txt"), "a") as profile_log:
         profile_log.write(time_str + "\n")
+        profile_log.write("----------------------------------------------------------------------------------------\n")
+
 
     logger.info(time_str)
 
-    return elapsed_time_hours
+    return elapsed_time_min
 
 def test(model, 
          model_name,
@@ -175,8 +178,7 @@ def test(model,
             all_preds.extend(preds)
             all_labels.extend(labels)
 
-    f1 = f1_score(all_labels, all_preds, average='macro')
-
+    precision, recall, f1 = calculate_metrics(all_labels, all_preds)
 
     # confusion matrix
     vis_path = os.path.join(f"saved/{setting}", name)
@@ -214,31 +216,53 @@ def test(model,
 
 
     logger.info(
-        f"Test Phase Completed - F1 Score: {f1: .4f}"
+        f"Test Phase Completed\n    F1 Score: {f1: .4f}\n    Precision: {precision: .4f}\n    Recall: {recall: .4f}\n"
     )
 
     # Log metrics to MLflow
     log_metrics_to_mlflow(0, "test", 0, f1)
 
-    return f1
+    return f1, precision, recall
+
+# # Uses validation_loss
+# class EarlyStopper:
+#     def __init__(self, logger, patience=1, min_delta=0):
+#         self.patience = patience
+#         self.min_delta = min_delta
+#         self.counter = 0
+#         self.min_validation_loss = np.inf
+#         self.logger = logger
+
+#     def early_stop(self, validation_loss):
+#         if validation_loss < self.min_validation_loss:
+#             self.min_validation_loss = validation_loss
+#             self.counter = 0
+#         elif validation_loss > (self.min_validation_loss + self.min_delta):
+#             self.counter += 1
+#             self.logger.info(
+#                 f'Validation loss increased. EarlyStopping counter: {self.counter} out of {self.patience}')
+#             if self.counter >= self.patience:
+#                 return True
+#         return False
 
 
+# Using F1 Score
 class EarlyStopper:
     def __init__(self, logger, patience=1, min_delta=0):
         self.patience = patience
         self.min_delta = min_delta
         self.counter = 0
-        self.min_validation_loss = np.inf
+        self.max_f1_score = -np.inf  # Initialize with negative infinity
         self.logger = logger
 
-    def early_stop(self, validation_loss):
-        if validation_loss < self.min_validation_loss:
-            self.min_validation_loss = validation_loss
+    def early_stop(self, f1_score):
+        if f1_score > self.max_f1_score:
+            self.max_f1_score = f1_score
             self.counter = 0
-        elif validation_loss > (self.min_validation_loss + self.min_delta):
+        elif f1_score < (self.max_f1_score - self.min_delta):
             self.counter += 1
             self.logger.info(
-                f'Validation loss increased. EarlyStopping counter: {self.counter} out of {self.patience}')
+                f'F1 score did not improve. EarlyStopping counter: {self.counter} out of {self.patience}')
             if self.counter >= self.patience:
                 return True
         return False
