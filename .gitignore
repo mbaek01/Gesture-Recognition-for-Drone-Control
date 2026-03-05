@@ -1,4 +1,4 @@
-*.png
+
 *.log
 *.sh
 __pycache__/
