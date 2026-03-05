@@ -1,4 +1,5 @@
-# Interpretable Multimodal Gesture Recognition for Drone and Mobile Robot Teleoperation
+# Interpretable Multimodal Gesture Recognition for Drone and Mobile Robot Teleoperation ![arXiv](https://img.shields.io/badge/arXiv-2602.23694-b31b1b.svg)
+![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 
 Official implementation of the paper:
 
@@ -7,7 +8,7 @@ Official implementation of the paper:
 📄 [Paper (arXiv)](https://arxiv.org/abs/2602.23694)
 
 <p align="center">
-  <img src="figures/teaser.png" width="800">
+  <img src="figures/teaser.png" width="1000">
 </p>
 
 This repository implements a **multimodal wearable-sensor gesture recognition framework** designed for **hands-free teleoperation of drones and mobile robots**.  
@@ -32,7 +33,7 @@ Modalities used (l and r indicate left and right hand, respectively):
 
 ---
 
-### Log-Likelihood Ratio (LLR) fusion
+### Log-Likelihood Ratio (LLR) Fusion
 
 We propose **Log-Likelihood Ratio (LLR) fusion**, which:
 
@@ -65,7 +66,7 @@ Outputs include:
 
 ---
 
-# Hardware Setup
+## Hardware Setup
 
 Data was collected using a multimodal wearable sensing system.
 
@@ -91,7 +92,7 @@ Data was collected using a multimodal wearable sensing system.
 
 ---
 
-# Dataset
+## Dataset
 
 We introduce a **multimodal gesture dataset** inspired by **aircraft marshalling signals**, commonly used in aviation ground operations.
 
@@ -102,7 +103,7 @@ We introduce a **multimodal gesture dataset** inspired by **aircraft marshalling
 - **80 gesture instances per session**
 - **20 gesture classes**
 
-Example gestures include: 
+Example gesture classes include: 
 - Stop
 - Slow Down
 - Left
@@ -125,37 +126,40 @@ Each session includes synchronized:
 ### Preprocessing
 
 Sensor streams are segmented using a sliding window:
-window size = 3 seconds
-step size = 1 second
+```code
+window_size = 3 seconds
+step_size = 1 second
+```
 
 Labels are assigned using **threshold voting (0.75 overlap)**.  
 Windows labeled as `null_class` are excluded from training. 
 
 ---
 
-# Requirements
+## Requirements
 ```bash
 pip install -r requirements.txt
 ```
 
-# Running Training
+## Training
 A CUDA GPU is recommended.
 
 ```bash
 python main.py
 ```
+This script trains the gesture recognition model and evaluates it using the selected cross-validation protocol (LOPO or LOSO).
 
-# Evaluation Protocols
+## Evaluation Protocols
 
-LOPO — Leave-One-Participant-Out
+**LOPO** — Leave-One-Participant-Out
 
 Tests generalization to unseen users.
 
-LOSO — Leave-One-Session-Out
+**LOSO** — Leave-One-Session-Out
 
 Tests generalization across recording sessions.
 
-# Citation
+## Citation
 If you use this repository, please cite:
 
 ```bibtex
@@ -166,10 +170,10 @@ year={2026}
 }
 ```
 
-# License
+## License
 This project is released under the Apache License 2.0.
 
 See the LICENSE file for details.
 
-# Author Contact Information
-
+## Author Contact Information
+Corresponding Author, Sungho Suh: sungho_suh@korea.ac.kr
