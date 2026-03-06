@@ -10,7 +10,7 @@ Official implementation of the paper:
 [Paper (arXiv)](https://arxiv.org/abs/2602.23694)
 
 <p align="center">
-  <img src="figures/teaser.jpeg" width="1000">
+  <img src="figures/teaser.png" width="1000">
 </p>
 
 This repository implements a **multimodal wearable-sensor gesture recognition framework** designed for **hands-free teleoperation of drones and mobile robots**.  
