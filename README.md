@@ -1,13 +1,15 @@
 # Interpretable Multimodal Gesture Recognition for Drone and Mobile Robot Teleoperation 
 
-![arXiv](https://img.shields.io/badge/arXiv-2602.23694-b31b1b.svg)
+[![arXiv](https://img.shields.io/badge/arXiv-2602.23694-b31b1b.svg)](https://arxiv.org/abs/2602.23694)
+[![Project Page](https://img.shields.io/badge/Project-Page-2ea44f.svg)](https://mbaek01.github.io/multimodal-gesture-recognition-SensorGestures/)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 
 Official implementation of the paper:
 
 **Interpretable Multimodal Gesture Recognition for Drone and Mobile Robot Teleoperation via Log-Likelihood Ratio Fusion**
 
-[Paper (arXiv)](https://arxiv.org/abs/2602.23694)
+[[Paper (arXiv)]](https://arxiv.org/abs/2602.23694)
+[[Project Page]](https://mbaek01.github.io/multimodal-gesture-recognition-SensorGestures/)
 
 <p align="center">
   <img src="figures/teaser.png" width="1000">
